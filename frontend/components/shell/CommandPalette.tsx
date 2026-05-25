@@ -20,6 +20,7 @@ import {
   Compass,
   FileText,
   GraduationCap,
+  Mail,
   LogOut,
   MessageSquare,
   Monitor,
@@ -65,7 +66,8 @@ interface NavCommand {
 
 const NAV_COMMANDS: NavCommand[] = [
   { label: "Today",          to: "/today",                     icon: Sparkles,        keywords: "home briefing morning mission control",  shortcut: "g t" },
-  { label: "Review Queue",   to: "/review-queue",              icon: ClipboardCheck,  keywords: "approvals decisions needs you inbox tasks", shortcut: "g r" },
+  { label: "Review Queue",   to: "/approvals",                 icon: ClipboardCheck,  keywords: "approvals decisions needs you inbox tasks", shortcut: "g r" },
+  { label: "Email box",      to: "/email",                     icon: Mail,            keywords: "mailbox inbound carrier submissions triage" },
   { label: "Marketplace",    to: "/marketplace",               icon: Compass,         keywords: "agents browse activate",       shortcut: "g m" },
   { label: "My Agents",      to: "/my-models",                 icon: Box,             keywords: "models pods activated",        shortcut: "g a" },
   { label: "Request a custom pod", to: "/request-pod",         icon: Wand2,           keywords: "sop workflow custom request fideon build engineer" },

@@ -63,7 +63,7 @@ const coreItems = [
 ];
 
 const aiToolsItems = [
-  { title: "Review Queue", url: "/review-queue", icon: ClipboardCheck },
+  { title: "Review Queue", url: "/approvals", icon: ClipboardCheck },
 ];
 
 const aiAgentItems = [

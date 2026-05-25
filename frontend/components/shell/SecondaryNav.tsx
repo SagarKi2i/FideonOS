@@ -197,6 +197,7 @@ function buildSection(
           {
             items: [
               { title: "Pending decisions", url: "/approvals", icon: ClipboardCheck },
+              { title: "Email box", url: "/email", icon: Mail },
             ],
           },
         ],

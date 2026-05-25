@@ -10,7 +10,7 @@ import {
   CheckCircle2,
   Clock as ClockIcon,
   Clock,
-  SendHorizontal,
+  Settings,
   ShieldCheck,
   Plus,
   X,
@@ -41,6 +41,7 @@ import {
   Play,
   PauseCircle,
   Code2,
+  Bell,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,9 +50,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
-import { PageHeader, SectionHeader } from "@/components/ui/page-header";
 import { EmptyState } from "@/components/ui/empty-state";
-import { StatusPill } from "@/components/ui/status-pill";
+import { Skeleton, SkeletonLine } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 import {
@@ -68,7 +68,6 @@ import {
   type SectorId,
 } from "@/lib/sectors";
 
-// Custom agent shape from custom_agents table
 interface CustomAgentRow {
   id: string;
   name: string;
@@ -84,7 +83,6 @@ interface CustomAgentRow {
   automation_status?: string | null;
 }
 
-// Icon name → component
 const ICONS: Record<string, LucideIcon> = {
   scale: Scale, "shield-check": ShieldCheck, "file-plus": FilePlus,
   "alert-circle": AlertCircle, "file-text": FileText, search: Search,
@@ -95,33 +93,23 @@ const ICONS: Record<string, LucideIcon> = {
   "file-check": FileCheck, repeat: Repeat, download: Download,
 };
 
-
 export default function Marketplace() {
   const { toast } = useToast();
   const router = useRouter();
 
-  // Sector + search
   const [sectorId, setSectorId] = useState<SectorId>("insurance");
   const [query, setQuery] = useState("");
-
-  // Activation / pending state from the FastAPI backend.
-  // Sets are keyed by agent keyword (catalog agent.id === agents.keyword for live agents).
   const [activatedIds, setActivatedIds] = useState<Set<string>>(new Set());
   const [pendingIds, setPendingIds] = useState<Set<string>>(new Set());
-  // catalog keyword → real agents.id (UUID), needed to create access requests.
   const [keywordToId, setKeywordToId] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-
-  // Custom agents ("Built for you by Fideon"). The full custom_agents table is a
-  // separate workstream (currently a stub) — see ALIGNMENT_AND_REMAINING_WORK.md §4.6.
-  // Until that ships, this section stays empty rather than querying missing columns.
   const [customAgents, setCustomAgents] = useState<CustomAgentRow[]>([]);
 
   // Compare drawer
   const [compareIds, setCompareIds] = useState<string[]>([]);
   const [compareOpen, setCompareOpen] = useState(false);
 
-  // Waitlist + request-an-agent
+  // Dialogs
   const [waitlistOpen, setWaitlistOpen] = useState(false);
   const [requestOpen, setRequestOpen] = useState(false);
   const [requestText, setRequestText] = useState("");
@@ -151,7 +139,6 @@ export default function Marketplace() {
           .map((r) => r.agents?.keyword)
           .filter((k): k is string => !!k),
       ));
-      // custom_agents full schema not yet implemented — intentionally left empty.
       setCustomAgents([]);
     } catch (e) { console.error(e); }
     finally { setLoading(false); }
@@ -159,16 +146,15 @@ export default function Marketplace() {
 
   const handleActivate = async (agent: CatalogAgent) => {
     if (agent.status !== "live" && agent.status !== "beta") {
-      toast({ title: "Not yet available", description: "We'll notify you when this agent goes live.", variant: "default" });
+      toast({ title: "Not yet available", description: "We'll notify you when this agent goes live." });
       return;
     }
     const user = await getCurrentUser();
     if (!user) { router.push("/auth"); return; }
 
-    // catalog agent.id === agents.keyword for live agents; resolve to the real UUID.
     const agentId = keywordToId[agent.id];
     if (!agentId) {
-      toast({ title: "Not yet available", description: "This agent isn't in the catalog yet.", variant: "default" });
+      toast({ title: "Not yet available", description: "This agent isn't in the catalog yet." });
       return;
     }
 
@@ -189,228 +175,213 @@ export default function Marketplace() {
 
   const sector = getSector(sectorId);
   const isSectorLive = sector.status === "live";
-
   const sectorAgents = useMemo(() => agentsBySector(sectorId), [sectorId]);
-  const stats = useMemo(() => sectorStats(sectorId), [sectorId]);
   const activatedCount = sectorAgents.filter((a) => activatedIds.has(a.id)).length;
 
   const toggleCompare = (id: string) => {
     setCompareIds((prev) => {
       if (prev.includes(id)) return prev.filter((x) => x !== id);
-      if (prev.length >= 3) {
-        toast({ title: "Compare up to 3 agents", variant: "destructive" });
-        return prev;
-      }
+      if (prev.length >= 3) { toast({ title: "Compare up to 3 agents", variant: "destructive" }); return prev; }
       return [...prev, id];
     });
   };
 
-  return (
-    <div className="max-w-[1500px] mx-auto">
-      {/* Hero / unique selling point */}
-      <PageHeader
-        eyebrow="Agent marketplace"
-        title="AI agents purpose-built for insurance."
-        description={
-          <>
-            Real agents that connect to your AMS, your carriers, your inbox &mdash; and produce auditable, reviewable work.
-            Optionally callable from Claude, ChatGPT, Copilot via MCP for power users.
-          </>
-        }
-        icon={Sparkles}
-        actions={
-          <div className="flex items-center gap-2">
-            {compareIds.length > 0 && (
-              <Button variant="outline" size="sm" onClick={() => setCompareOpen(true)}>
-                <Layers className="h-3.5 w-3.5" />Compare {compareIds.length}
-              </Button>
-            )}
-            <Button variant="primary" size="sm" onClick={() => router.push("/request-pod")}>
-              <Wand2 className="h-3.5 w-3.5" />Request a custom pod
-            </Button>
-          </div>
-        }
-      />
+  const matchesQuery = (a: CatalogAgent) => {
+    if (!query.trim()) return true;
+    const q = query.trim().toLowerCase();
+    return (
+      a.name.toLowerCase().includes(q) ||
+      a.description.toLowerCase().includes(q) ||
+      (a.oneLiner ?? "").toLowerCase().includes(q) ||
+      (a.connectors ?? []).some((c) => c.toLowerCase().includes(q))
+    );
+  };
 
-      {/* Sector chips — compact, single row */}
-      <div className="flex items-center gap-1.5 mb-6 flex-wrap">
+  const liveAgents = sectorAgents.filter((a) => a.status === "live" && matchesQuery(a));
+  const comingAgents = sectorAgents.filter((a) => a.status !== "live" && matchesQuery(a));
+
+  return (
+    <div className="max-w-[1400px] mx-auto">
+
+      {/* ── Page header ──────────────────────────────────────────── */}
+      <div className="flex items-start justify-between gap-4 mb-5">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground mb-1">
+            Agent Marketplace
+          </p>
+          <h1 className="text-[26px] font-bold text-foreground tracking-tight leading-tight flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary shrink-0" />
+            AI agents purpose-built for insurance.
+          </h1>
+          <p className="text-[13px] text-muted-foreground mt-1 max-w-2xl leading-relaxed">
+            Real agents that connect to your AMS, your carriers, your inbox — and produce auditable, reviewable work.
+            Optionally callable from Claude, ChatGPT, Copilot via MCP for power users.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 shrink-0 pt-1">
+          {compareIds.length > 0 && (
+            <Button variant="outline" size="sm" onClick={() => setCompareOpen(true)}>
+              <Layers className="h-3.5 w-3.5" />Compare {compareIds.length}
+            </Button>
+          )}
+          <Button variant="primary" size="sm" onClick={() => router.push("/request-pod")}>
+            <Wand2 className="h-3.5 w-3.5" />Request a custom pod
+          </Button>
+        </div>
+      </div>
+
+      {/* ── Sector tabs + search row ─────────────────────────────── */}
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
+        {/* Sector chips */}
         {SECTORS.map((s) => {
           const active = sectorId === s.id;
           return (
             <button
               key={s.id}
-              onClick={() => { setSectorId(s.id); setQuery(""); }}
+              onClick={() => { setSectorId(s.id as SectorId); setQuery(""); }}
               className={cn(
-                "inline-flex items-center gap-1.5 h-8 px-3 rounded-full border text-[12.5px] font-semibold transition-colors whitespace-nowrap",
+                "inline-flex items-center gap-1.5 h-7 px-3 rounded-full border text-[12px] font-semibold transition-colors whitespace-nowrap",
                 active
-                  ? "border-primary bg-accent text-primary"
+                  ? "border-primary bg-primary/10 text-primary"
                   : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-border-strong",
               )}
             >
-              <s.icon className="h-3.5 w-3.5" />
+              <s.icon className="h-3 w-3" />
               {s.shortLabel}
-              {s.status === "live" && (
-                <span className="text-[10.5px] font-bold tabular-nums opacity-80">{s.liveAgentCount}</span>
-              )}
-              {s.status !== "live" && (
-                <span className="text-[10px] uppercase tracking-wider opacity-60">soon</span>
+              {s.status === "live" ? (
+                <span className={cn(
+                  "inline-flex items-center justify-center rounded-full text-[10px] font-bold tabular-nums min-w-[16px] h-4 px-1",
+                  active ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground",
+                )}>
+                  {s.liveAgentCount}
+                </span>
+              ) : (
+                <span className="text-[9.5px] uppercase tracking-wider opacity-50">soon</span>
               )}
             </button>
           );
         })}
+
+        {/* My Agents tab */}
+        <button
+          onClick={() => router.push("/my-models")}
+          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full border border-border bg-card text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:border-border-strong transition-colors whitespace-nowrap"
+        >
+          My Agents
+          {activatedCount > 0 && (
+            <span className="inline-flex items-center justify-center rounded-full text-[10px] font-bold tabular-nums min-w-[16px] h-4 px-1 bg-muted text-muted-foreground">
+              {activatedCount}
+            </span>
+          )}
+        </button>
+
       </div>
 
-      {/* Sector NOT live → waitlist hero */}
+      {/* Search bar — own row, right-aligned */}
+      <div className="flex justify-end mb-4">
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search agents..."
+            className="pl-8 h-8 text-[12.5px] w-52"
+          />
+        </div>
+      </div>
+
+      {/* ── Sector not live → waitlist ───────────────────────────── */}
       {!isSectorLive ? (
         <SectorWaitlist sector={sector} onJoinWaitlist={() => setWaitlistOpen(true)} />
       ) : (
         <>
-          {/* Lone search — no other filters */}
-          {(stats.total > 6 || query) && (
-            <div className="relative max-w-md mb-6">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
-              <Input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search agents…"
-                className="pl-9 h-9 text-[13px]"
-              />
+          {/* No results */}
+          {!loading && liveAgents.length === 0 && comingAgents.length === 0 && (
+            <EmptyState
+              icon={Search}
+              title="No agents match"
+              description="Try a different search term."
+              action={<Button variant="outline" onClick={() => setQuery("")}>Clear search</Button>}
+            />
+          )}
+
+          {/* ── Live agents grouped by job lane ─────────────────── */}
+          {loading ? (
+            <section className="mb-8">
+              <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, i) => <AgentCardSkeleton key={i} />)}
+              </div>
+            </section>
+          ) : liveAgents.length > 0 && (
+            <div className="space-y-7 mb-8">
+              {JOB_LANES.filter((l) => l.id !== "explore").map((lane) => {
+                const items = liveAgents.filter((a) => a.jobLane === lane.id);
+                if (items.length === 0) return null;
+                return (
+                  <section key={lane.id}>
+                    {/* Lane header */}
+                    <div className="flex items-center gap-2 mb-3">
+                      <lane.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                      <h2 className="text-[13px] font-bold text-foreground tracking-tight">
+                        {lane.label}
+                      </h2>
+                      <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">{items.length}</span>
+                      <span className="text-[12px] text-muted-foreground">·</span>
+                      <span className="text-[12px] text-muted-foreground">{lane.description}</span>
+                    </div>
+                    <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                      {items.map((agent) => (
+                        <AgentCard
+                          key={agent.id}
+                          agent={agent}
+                          activated={activatedIds.has(agent.id)}
+                          pending={pendingIds.has(agent.id)}
+                          loading={loading}
+                          compared={compareIds.includes(agent.id)}
+                          onToggleCompare={() => toggleCompare(agent.id)}
+                          onActivate={() => handleActivate(agent)}
+                          onView={() => router.push(`/marketplace/${agent.id}`)}
+                        />
+                      ))}
+                    </div>
+                  </section>
+                );
+              })}
             </div>
           )}
 
-          {/* Split into two clean sections */}
-          {(() => {
-            const matchesQuery = (a: CatalogAgent) => {
-              if (!query.trim()) return true;
-              const q = query.trim().toLowerCase();
-              return (
-                a.name.toLowerCase().includes(q) ||
-                a.description.toLowerCase().includes(q) ||
-                (a.oneLiner ?? "").toLowerCase().includes(q) ||
-                (a.connectors ?? []).some((c) => c.toLowerCase().includes(q))
-              );
-            };
-            const live = sectorAgents.filter((a) => a.status === "live" && matchesQuery(a));
-            const coming = sectorAgents.filter((a) => a.status !== "live" && matchesQuery(a));
-
-            if (live.length === 0 && coming.length === 0) {
-              return (
-                <EmptyState
-                  icon={Search}
-                  title="No agents match"
-                  description="Try a different search term."
-                  action={<Button variant="outline" onClick={() => setQuery("")}>Clear search</Button>}
-                />
-              );
-            }
-
-            return (
-              <>
-                {/* BUILT FOR YOU BY FIDEON — engineered custom pods */}
-                {customAgents.length > 0 && sectorId === "insurance" && (
-                  <section className="mb-10">
-                    <SectionHeader
-                      title="Built for you by Fideon"
-                      description="Engineered + QA'd by the Fideon team. Same governance as catalog pods."
-                      count={customAgents.length}
-                      icon={Wand2}
-                      actions={
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          className="text-primary"
-                          onClick={() => router.push("/request-pod")}
-                        >
-                          <Plus className="h-3 w-3" />Request another
-                        </Button>
-                      }
-                    />
-                    <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                      {customAgents.map((ca) => (
-                        <CustomAgentCard
-                          key={ca.id}
-                          agent={ca}
-                          onOpen={() => router.push(`/my-models`)}
-                          onManage={() => router.push("/my-models")}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                )}
-
-                {/* LIVE pods — grouped by job-to-be-done */}
-                {live.length > 0 && (
-                  <section className="mb-10 space-y-8">
-                    {JOB_LANES.filter((l) => l.id !== "explore").map((lane) => {
-                      const items = live.filter((a) => a.jobLane === lane.id);
-                      if (items.length === 0) return null;
-                      return (
-                        <div key={lane.id}>
-                          <SectionHeader
-                            title={lane.label}
-                            description={lane.description}
-                            count={items.length}
-                            icon={lane.icon}
-                          />
-                          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                            {items.map((agent) => (
-                              <AgentCard
-                                key={agent.id}
-                                agent={agent}
-                                activated={activatedIds.has(agent.id)}
-                                pending={pendingIds.has(agent.id)}
-                                loading={loading}
-                                compared={compareIds.includes(agent.id)}
-                                onToggleCompare={() => toggleCompare(agent.id)}
-                                onActivate={() => handleActivate(agent)}
-                                onView={() => router.push(`/marketplace/${agent.id}`)}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </section>
-                )}
-
-                {/* COMING SOON — compact cards, lighter weight */}
-                {coming.length > 0 && (
-                  <section>
-                    <SectionHeader
-                      title="Coming soon"
-                      description="On the roadmap. Tell us what you want first."
-                      count={coming.length}
-                      icon={Clock}
-                      actions={
-                        <Button
-                          variant="ghost"
-                          size="xs"
-                          className="text-primary"
-                          onClick={() => { setRequestText(""); setRequestOpen(true); }}
-                        >
-                          <Plus className="h-3 w-3" />Request an agent
-                        </Button>
-                      }
-                    />
-                    <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {coming.map((agent) => (
-                        <ComingSoonCard
-                          key={agent.id}
-                          agent={agent}
-                          onView={() => router.push(`/marketplace/${agent.id}`)}
-                          onNotify={() => handleActivate(agent)}
-                        />
-                      ))}
-                    </div>
-                  </section>
-                )}
-              </>
-            );
-          })()}
+          {/* ── Coming soon ──────────────────────────────────────── */}
+          {comingAgents.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-3">
+                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                <h2 className="text-[13px] font-bold text-foreground tracking-tight">Coming soon</h2>
+                <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">{comingAgents.length}</span>
+                <span className="text-[12px] text-muted-foreground">·</span>
+                <span className="text-[12px] text-muted-foreground">On the roadmap. Tell us what you want first.</span>
+                <button
+                  onClick={() => { setRequestText(""); setRequestOpen(true); }}
+                  className="ml-auto text-[12px] text-primary font-semibold hover:underline flex items-center gap-1"
+                >
+                  <Plus className="h-3 w-3" />Request an agent
+                </button>
+              </div>
+              <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {comingAgents.map((agent) => (
+                  <ComingSoonCard
+                    key={agent.id}
+                    agent={agent}
+                    onView={() => router.push(`/marketplace/${agent.id}`)}
+                    onNotify={() => handleActivate(agent)}
+                  />
+                ))}
+              </div>
+            </section>
+          )}
         </>
       )}
 
-      {/* Compare drawer */}
+      {/* ── Compare drawer ───────────────────────────────────────── */}
       <CompareDrawer
         open={compareOpen}
         onOpenChange={setCompareOpen}
@@ -422,7 +393,7 @@ export default function Marketplace() {
         pendingIds={pendingIds}
       />
 
-      {/* Sector waitlist dialog */}
+      {/* ── Sector waitlist dialog ───────────────────────────────── */}
       <Dialog open={waitlistOpen} onOpenChange={setWaitlistOpen}>
         <DialogContent>
           <DialogHeader>
@@ -447,13 +418,12 @@ export default function Marketplace() {
         </DialogContent>
       </Dialog>
 
-      {/* Request-an-agent dialog */}
+      {/* ── Request-an-agent dialog ──────────────────────────────── */}
       <Dialog open={requestOpen} onOpenChange={setRequestOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Plus className="h-5 w-5 text-primary" />
-              Request an agent
+              <Plus className="h-5 w-5 text-primary" />Request an agent
             </DialogTitle>
             <DialogDescription>
               Tell us what you'd want automated. We prioritize agents brokers actually ask for.
@@ -478,127 +448,8 @@ export default function Marketplace() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Custom agent card — user-compiled from an SOP
-// ─────────────────────────────────────────────────────────────────────
-
-function CustomAgentCard({
-  agent,
-  onOpen,
-  onManage,
-}: {
-  agent: CustomAgentRow;
-  onOpen: () => void;
-  onManage: () => void;
-}) {
-  const Icon = ICONS[agent.icon] ?? Bot;
-  const lastRun = agent.last_run_at
-    ? new Date(agent.last_run_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })
-    : null;
-
-  return (
-    <Card className="group relative flex flex-col overflow-hidden transition-all duration-200 border-primary/30 bg-gradient-to-br from-accent/30 to-transparent hover:border-primary/50 hover:shadow-elevated hover:-translate-y-0.5">
-      {/* Status ribbon */}
-      <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 z-10">
-        <StatusPill tone="info" size="sm">
-          <Wand2 className="h-2.5 w-2.5" />
-          Engineered by Fideon
-        </StatusPill>
-        {agent.automation_status === "ready" && (
-          <StatusPill tone="primary" size="sm">
-            <Code2 className="h-2.5 w-2.5" />
-            Browser-automated
-          </StatusPill>
-        )}
-        {agent.is_active ? (
-          <StatusPill tone="success" dot size="sm">Active</StatusPill>
-        ) : (
-          <StatusPill tone="warning" size="sm">
-            <PauseCircle className="h-2.5 w-2.5" />Paused
-          </StatusPill>
-        )}
-      </div>
-
-      <button onClick={onOpen} className="text-left p-5 pb-3 flex-1">
-        <div className="flex items-start gap-3 mb-3 pr-24">
-          <div className="h-11 w-11 rounded-xl bg-primary text-primary-foreground flex items-center justify-center shrink-0">
-            <Icon className="h-5 w-5" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="font-display text-[14px] font-semibold text-foreground leading-tight line-clamp-2 group-hover:text-primary transition-colors">
-              {agent.name}
-            </h3>
-            {agent.category && (
-              <p className="mt-1 text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                {agent.category}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <p className="text-[13px] text-foreground/80 leading-relaxed line-clamp-3 min-h-[60px]">
-          {agent.description || "Custom agent compiled from your SOP."}
-        </p>
-      </button>
-
-      {/* Footer */}
-      <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center gap-2 text-[11.5px] text-muted-foreground">
-        <span>{lastRun ? `Last run · ${lastRun}` : "Never run yet"}</span>
-        <div className="flex-1" />
-        <Button size="xs" variant="outline" onClick={onManage}>Manage</Button>
-        <Button size="xs" variant="primary" onClick={onOpen}>
-          <Play className="h-3 w-3" />Run
-        </Button>
-      </div>
-    </Card>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Coming soon card — compact, no proof points (we don't have any yet)
-// ─────────────────────────────────────────────────────────────────────
-
-function ComingSoonCard({
-  agent,
-  onView,
-  onNotify,
-}: {
-  agent: CatalogAgent;
-  onView: () => void;
-  onNotify: () => void;
-}) {
-  const Icon = ICONS[agent.icon] ?? Bot;
-  return (
-    <Card className="group p-4 hover:border-border-strong hover:shadow-card transition-all flex flex-col">
-      <button onClick={onView} className="text-left flex-1">
-        <div className="flex items-start gap-2.5 mb-2">
-          <div className="h-8 w-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center shrink-0">
-            <Icon className="h-4 w-4" />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="text-[13px] font-semibold text-foreground leading-tight truncate group-hover:text-primary transition-colors">
-              {agent.name}
-            </h3>
-            <p className="text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wide mt-0.5 truncate">
-              {agent.category ?? agent.segment ?? "Agent"}
-            </p>
-          </div>
-        </div>
-        <p className="text-[11.5px] text-muted-foreground line-clamp-2 leading-snug min-h-[28px]">
-          {agent.oneLiner ?? agent.description}
-        </p>
-      </button>
-      <div className="mt-3 flex items-center justify-between">
-        <StatusPill tone="warning" size="sm">Coming soon</StatusPill>
-        <Button variant="ghost" size="xs" className="text-muted-foreground hover:text-foreground -mr-1.5" onClick={onNotify}>
-          Notify me
-        </Button>
-      </div>
-    </Card>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Agent card (live)
+// Agent card (live) — matches screenshot: small square icon, category
+// tag, description, Live dot top-right, settings icon + status footer
 // ─────────────────────────────────────────────────────────────────────
 
 function AgentCard({
@@ -615,141 +466,227 @@ function AgentCard({
   onView: () => void;
 }) {
   const Icon = ICONS[agent.icon] ?? Bot;
-  const statusMeta = STATUS_META[agent.status];
-
   const cantActivateYet = agent.status !== "live" && agent.status !== "beta";
 
   return (
     <Card
       className={cn(
-        "group relative flex flex-col overflow-hidden transition-all duration-200",
+        "group relative flex flex-col overflow-hidden transition-all duration-150",
         activated
-          ? "border-primary/40 bg-accent/30 ring-1 ring-primary/10"
+          ? "border-primary/40 bg-primary/[0.03] ring-1 ring-primary/10"
           : pending
-            ? "border-warning/40"
+            ? "border-amber-300/50"
             : compared
-              ? "border-primary ring-1 ring-primary/30"
-              : "hover:border-border-strong hover:shadow-elevated hover:-translate-y-0.5",
+              ? "border-primary ring-1 ring-primary/20"
+              : "hover:border-border-strong hover:shadow-sm hover:-translate-y-px",
       )}
     >
-      {/* Status ribbon */}
-      <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5 z-10">
-        <StatusPill tone={statusMeta.tone} dot={statusMeta.tone === "success"} pulse={agent.status === "live" && !activated} size="sm">
-          {statusMeta.label}
-        </StatusPill>
-        {activated && (
-          <StatusPill tone="success" dot size="sm">
-            <CheckCircle2 className="h-2.5 w-2.5" />
-            Active
-          </StatusPill>
-        )}
-        {pending && !activated && (
-          <StatusPill tone="warning" dot size="sm">
-            <ClockIcon className="h-2.5 w-2.5" />
-            Pending
-          </StatusPill>
+      {/* Live dot — top right, matches screenshot green dot */}
+      <div className="absolute top-3 right-3 z-10">
+        {activated ? (
+          <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-emerald-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            ACTIVE
+          </span>
+        ) : pending ? (
+          <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-amber-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+            PENDING
+          </span>
+        ) : agent.status === "live" ? (
+          <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-emerald-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            LIVE
+          </span>
+        ) : (
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            {agent.status === "beta" ? "BETA" : "SOON"}
+          </span>
         )}
       </div>
 
-      <button onClick={onView} className="text-left p-5 pb-3 flex-1">
-        <div className="flex items-start gap-3 mb-3 pr-24">
+      {/* Card body */}
+      <button onClick={onView} className="text-left p-4 pb-3 flex-1">
+        {/* Icon + name + category */}
+        <div className="flex items-start gap-3 pr-16 mb-2.5">
           <div className={cn(
-            "h-11 w-11 rounded-xl flex items-center justify-center shrink-0 transition-colors",
+            "h-9 w-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
             activated
               ? "bg-primary text-primary-foreground"
-              : "bg-accent text-primary group-hover:bg-primary group-hover:text-primary-foreground",
+              : "bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400",
           )}>
-            <Icon className="h-5 w-5" />
+            <Icon className="h-4 w-4" />
           </div>
-          <div className="min-w-0 flex-1">
-            <h3 className="font-display text-[14px] font-semibold text-foreground leading-tight line-clamp-2 group-hover:text-primary transition-colors">
+          <div className="min-w-0 flex-1 pt-0.5">
+            <h3 className="text-[13.5px] font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
               {agent.name}
             </h3>
-            {agent.category && (
-              <p className="mt-1 text-[10.5px] font-semibold text-muted-foreground uppercase tracking-wider truncate">
-                {agent.category}
+            {(agent.category || agent.segment) && (
+              <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mt-0.5 truncate">
+                {agent.category ?? agent.segment}
               </p>
             )}
           </div>
         </div>
 
-        <p className="text-[13px] text-foreground/80 leading-relaxed line-clamp-3 min-h-[60px]">
+        {/* Description */}
+        <p className="text-[12.5px] text-muted-foreground leading-relaxed line-clamp-3 min-h-[54px]">
           {agent.oneLiner ?? agent.description}
         </p>
       </button>
 
-      {/* Footer */}
-      <div className="px-5 py-3 border-t border-border bg-muted/20 flex items-center gap-2">
+      {/* Footer — gear icon left, activate/status right */}
+      <div className="px-4 py-2.5 border-t border-border/60 flex items-center justify-between">
         <button
           onClick={onToggleCompare}
-          aria-label={compared ? "Remove from compare" : "Add to compare"}
+          aria-label={compared ? "Remove from compare" : "Compare"}
           className={cn(
-            "h-7 w-7 rounded-md border flex items-center justify-center transition-colors shrink-0",
-            compared
-              ? "border-primary bg-primary text-primary-foreground"
-              : "border-border bg-background text-muted-foreground hover:text-foreground hover:border-border-strong",
+            "h-7 w-7 rounded flex items-center justify-center transition-colors text-muted-foreground hover:text-foreground hover:bg-muted",
+            compared && "text-primary bg-primary/10",
           )}
         >
-          <Layers className="h-3 w-3" />
+          <Settings className="h-3.5 w-3.5" />
         </button>
-        <div className="flex-1" />
-        <Button
-          size="xs"
-          variant={activated ? "outline" : pending ? "secondary" : cantActivateYet ? "soft" : "primary"}
-          onClick={onActivate}
-          disabled={loading || activated}
-          className="shrink-0"
-        >
-          {activated ? (
-            <><CheckCircle2 className="h-3 w-3" />Activated</>
-          ) : pending ? (
-            <><ClockIcon className="h-3 w-3" />Pending</>
-          ) : cantActivateYet ? (
-            <>Notify me</>
-          ) : (
-            <><SendHorizontal className="h-3 w-3" />Activate</>
-          )}
-        </Button>
+        {activated ? (
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md px-2.5 py-1">
+            <CheckCircle2 className="h-3 w-3" />Active
+          </span>
+        ) : pending ? (
+          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-600 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-2.5 py-1">
+            <ClockIcon className="h-3 w-3" />Pending
+          </span>
+        ) : (
+          <Button
+            size="sm"
+            variant={cantActivateYet ? "outline" : "primary"}
+            onClick={onActivate}
+            disabled={loading}
+            className="shrink-0 h-7 text-[12px] px-4"
+          >
+            {cantActivateYet ? "Notify me" : "Activate"}
+          </Button>
+        )}
       </div>
     </Card>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Sector waitlist (for not-yet-live sectors)
+// Agent card skeleton
+// ─────────────────────────────────────────────────────────────────────
+
+function AgentCardSkeleton() {
+  return (
+    <Card className="relative flex flex-col overflow-hidden">
+      <div className="absolute top-3 right-3">
+        <Skeleton className="h-3.5 w-8 rounded" />
+      </div>
+      <div className="p-4 pb-3 flex-1 space-y-3">
+        <div className="flex items-start gap-3 pr-14">
+          <Skeleton className="h-9 w-9 rounded-lg shrink-0 bg-indigo-100/70 dark:bg-indigo-950/30" />
+          <div className="flex-1 space-y-1.5 pt-0.5">
+            <SkeletonLine className="w-3/4 h-3.5" />
+            <SkeletonLine className="w-1/3 h-2" />
+          </div>
+        </div>
+        <div className="space-y-1.5 min-h-[54px]">
+          <SkeletonLine className="w-full" />
+          <SkeletonLine className="w-5/6" />
+          <SkeletonLine className="w-2/3" />
+        </div>
+      </div>
+      <div className="px-4 py-2.5 border-t border-border/60 flex items-center justify-between">
+        <Skeleton className="h-7 w-7 rounded shrink-0" />
+        <Skeleton className="h-7 w-16 rounded" />
+      </div>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Coming soon card — compact horizontal row style matching screenshot
+// ─────────────────────────────────────────────────────────────────────
+
+function ComingSoonCard({
+  agent,
+  onView,
+  onNotify,
+}: {
+  agent: CatalogAgent;
+  onView: () => void;
+  onNotify: () => void;
+}) {
+  const Icon = ICONS[agent.icon] ?? Bot;
+  return (
+    <Card className="group p-3.5 hover:border-border-strong transition-all flex flex-col gap-2">
+      <button onClick={onView} className="text-left flex-1">
+        <div className="flex items-start gap-2.5">
+          <div className="h-8 w-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center shrink-0">
+            <Icon className="h-3.5 w-3.5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-[12.5px] font-semibold text-foreground leading-tight truncate group-hover:text-primary transition-colors">
+              {agent.name}
+            </h3>
+            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mt-0.5 truncate">
+              {agent.category ?? agent.segment ?? "Agent"}
+            </p>
+          </div>
+        </div>
+        <p className="text-[11.5px] text-muted-foreground line-clamp-2 leading-snug mt-2">
+          {agent.oneLiner ?? agent.description}
+        </p>
+      </button>
+      <div className="flex items-center justify-between pt-0.5">
+        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted px-2 py-0.5 rounded">
+          Coming soon
+        </span>
+        <button
+          onClick={onNotify}
+          className="text-[11.5px] text-muted-foreground hover:text-foreground font-medium transition-colors flex items-center gap-1"
+        >
+          <Bell className="h-3 w-3" />Notify me
+        </button>
+      </div>
+    </Card>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+// Sector waitlist
 // ─────────────────────────────────────────────────────────────────────
 
 function SectorWaitlist({ sector, onJoinWaitlist }: { sector: ReturnType<typeof getSector>; onJoinWaitlist: () => void }) {
   return (
-    <Card className="overflow-hidden bg-gradient-hero border-primary/15">
+    <Card className="overflow-hidden border-primary/15 bg-gradient-to-br from-accent/20 to-transparent">
       <div className="p-8 md:p-10">
         <div className="flex flex-col md:flex-row gap-8 items-start">
           <div className="flex-1">
-            <StatusPill tone={sector.status === "preview" ? "warning" : "neutral"} dot>
+            <span className="inline-flex items-center gap-1.5 text-[10.5px] font-bold uppercase tracking-widest text-muted-foreground border border-border rounded px-2 py-0.5 mb-3">
               {sector.status === "preview" ? "Preview — limited beta" : "On the waitlist"}
-            </StatusPill>
-            <h2 className="font-display text-[28px] md:text-[32px] font-bold text-foreground tracking-tight leading-tight mt-3 mb-2">
+            </span>
+            <h2 className="text-[28px] md:text-[32px] font-bold text-foreground tracking-tight leading-tight mt-3 mb-2">
               {sector.label}, coming soon.
             </h2>
-            <p className="text-[15px] text-muted-foreground leading-relaxed max-w-xl mb-5">
-              {sector.tagline} We're shipping sector-by-sector with deep integrations — same MCP layer, same audit trail, same review queue. Join the waitlist to influence what we build first.
+            <p className="text-[14px] text-muted-foreground leading-relaxed max-w-xl mb-5">
+              {sector.tagline} We're shipping sector-by-sector with deep integrations — same MCP layer, same audit trail, same review queue.
             </p>
             <div className="flex items-center gap-3 flex-wrap">
-              <Button variant="primary" size="lg" onClick={onJoinWaitlist}>
-                <Sparkles className="h-4 w-4" />Join waitlist
+              <Button variant="primary" size="sm" onClick={onJoinWaitlist}>
+                <Sparkles className="h-3.5 w-3.5" />Join waitlist
               </Button>
-              <Button variant="outline" size="lg" onClick={onJoinWaitlist}>
-                <Plus className="h-4 w-4" />Request an agent
+              <Button variant="outline" size="sm" onClick={onJoinWaitlist}>
+                <Plus className="h-3.5 w-3.5" />Request an agent
               </Button>
             </div>
           </div>
           {sector.comingSoon && sector.comingSoon.length > 0 && (
-            <div className="md:w-[300px] shrink-0 space-y-1.5">
-              <p className="text-eyebrow text-muted-foreground mb-1">On the roadmap</p>
+            <div className="md:w-[280px] shrink-0 space-y-1.5">
+              <p className="text-[10.5px] font-bold uppercase tracking-widest text-muted-foreground mb-2">On the roadmap</p>
               {sector.comingSoon.map((item) => (
-                <div key={item} className="flex items-start gap-2 text-[13px]">
-                  <div className="h-1.5 w-1.5 rounded-full bg-primary mt-2 shrink-0" />
-                  <span className="text-foreground/85">{item}</span>
+                <div key={item} className="flex items-start gap-2 text-[12.5px]">
+                  <div className="h-1.5 w-1.5 rounded-full bg-primary mt-1.5 shrink-0" />
+                  <span className="text-foreground/80">{item}</span>
                 </div>
               ))}
             </div>
@@ -782,8 +719,8 @@ function CompareDrawer({
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="w-full sm:max-w-3xl flex flex-col gap-0 p-0 bg-card">
-        <SheetHeader className="px-6 py-4 pr-12 border-b border-border bg-gradient-hero">
-          <SheetTitle className="font-display text-[18px] font-bold tracking-tight">
+        <SheetHeader className="px-6 py-4 pr-12 border-b border-border">
+          <SheetTitle className="text-[17px] font-bold tracking-tight">
             Compare {agents.length} agent{agents.length !== 1 ? "s" : ""}
           </SheetTitle>
         </SheetHeader>
@@ -802,22 +739,26 @@ function CompareDrawer({
                     >
                       <X className="h-3.5 w-3.5 mx-auto" />
                     </button>
-                    <div className={cn("h-10 w-10 rounded-xl bg-accent text-primary flex items-center justify-center mb-3")}>
-                      <Icon className="h-5 w-5" />
+                    <div className="h-9 w-9 rounded-lg bg-accent text-primary flex items-center justify-center mb-3">
+                      <Icon className="h-4 w-4" />
                     </div>
-                    <h3 className="font-display text-[14px] font-bold tracking-tight leading-tight">
-                      {agent.name}
-                    </h3>
-                    <div className="my-3 flex flex-wrap gap-1">
-                      <StatusPill tone={statusMeta.tone} size="sm">{statusMeta.label}</StatusPill>
-                      {agent.mcpAvailable && <StatusPill tone="info" size="sm">MCP</StatusPill>}
+                    <h3 className="text-[13.5px] font-bold tracking-tight leading-tight">{agent.name}</h3>
+                    <div className="my-2.5 flex flex-wrap gap-1">
+                      <span className={cn(
+                        "text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded border",
+                        statusMeta.tone === "success" ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "text-muted-foreground border-border bg-muted",
+                      )}>
+                        {statusMeta.label}
+                      </span>
+                      {agent.mcpAvailable && (
+                        <span className="text-[10px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded border text-blue-600 border-blue-200 bg-blue-50">MCP</span>
+                      )}
                     </div>
                     <CompareRow label="What it does"   value={agent.oneLiner ?? agent.description} />
                     <CompareRow label="Time saved"     value={agent.timeSavedMinutes ? `~${agent.timeSavedMinutes} min/run` : "—"} />
                     <CompareRow label="Used by"        value={agent.usedByCount ? `${agent.usedByCount} tenants` : "—"} />
                     <CompareRow label="Connectors"     value={(agent.connectors ?? []).join(" · ") || "—"} />
                     <CompareRow label="MCP tool"       value={agent.mcpToolName ?? (agent.mcpAvailable ? "Yes" : "No")} mono />
-                    <CompareRow label="Pricing"        value={agent.pricingHint ?? "—"} />
                     <Button
                       variant={activatedIds.has(agent.id) ? "outline" : pendingIds.has(agent.id) ? "secondary" : "primary"}
                       size="sm"
@@ -825,11 +766,7 @@ function CompareDrawer({
                       onClick={() => onActivate(agent)}
                       disabled={activatedIds.has(agent.id) || pendingIds.has(agent.id)}
                     >
-                      {activatedIds.has(agent.id)
-                        ? <><CheckCircle2 className="h-3.5 w-3.5" />Activated</>
-                        : pendingIds.has(agent.id)
-                          ? <><ClockIcon className="h-3.5 w-3.5" />Pending</>
-                          : <><SendHorizontal className="h-3.5 w-3.5" />Activate</>}
+                      {activatedIds.has(agent.id) ? "Activated" : pendingIds.has(agent.id) ? "Pending" : "Activate"}
                     </Button>
                   </div>
                 );
@@ -839,9 +776,8 @@ function CompareDrawer({
         </ScrollArea>
         <div className="border-t border-border px-6 py-3 flex justify-between items-center">
           <Button variant="ghost" size="sm" onClick={onClear}>Clear compare</Button>
-          <span className="text-[12px] text-muted-foreground flex items-center gap-1.5">
-            <Lock className="h-3 w-3" />
-            Same audit trail · same review queue · same confidence band
+          <span className="text-[11.5px] text-muted-foreground flex items-center gap-1.5">
+            <Lock className="h-3 w-3" />Same audit trail · same review queue
           </span>
         </div>
       </SheetContent>
@@ -851,10 +787,9 @@ function CompareDrawer({
 
 function CompareRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
-    <div className="py-2 border-t border-border/60">
-      <p className="text-[10px] uppercase tracking-wider font-semibold text-muted-foreground mb-0.5">{label}</p>
-      <p className={cn("text-[12.5px] text-foreground/90", mono && "font-mono text-[11.5px] break-all")}>{value}</p>
+    <div className="py-1.5 border-t border-border/60">
+      <p className="text-[9.5px] uppercase tracking-wider font-semibold text-muted-foreground mb-0.5">{label}</p>
+      <p className={cn("text-[12px] text-foreground/90", mono && "font-mono text-[11px] break-all")}>{value}</p>
     </div>
   );
 }
-

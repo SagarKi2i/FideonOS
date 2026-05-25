@@ -1,5 +1,7 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
+const { execFile, exec } = require('child_process');
+const fs = require('fs');
 
 let mainWindow;
 const isDev = process.env.NODE_ENV === 'development';
@@ -145,6 +147,128 @@ ipcMain.handle('ollama:delete-model', async (event, modelName) => {
 });
 
 ipcMain.handle('is-electron', () => true);
+
+// ── System service IPC (FNF-425 / 426 / 427 / 428) ───────────────────────────
+// Allows the Settings → Device Setup page to install / uninstall / check the
+// FastAPI backend as a native OS service with crash-recovery and auto-start.
+
+const SERVICE_DIR = path.join(__dirname, 'service');
+
+function runCommand(cmd, args) {
+  return new Promise((resolve) => {
+    execFile(cmd, args, { timeout: 15000 }, (err, stdout, stderr) => {
+      if (err) resolve({ ok: false, output: stderr || err.message });
+      else resolve({ ok: true, output: stdout.trim() });
+    });
+  });
+}
+
+ipcMain.handle('service:install', async () => {
+  const platform = process.platform;
+  try {
+    if (platform === 'win32') {
+      const winswExe = path.join(SERVICE_DIR, 'windows', 'winsw.exe');
+      if (!fs.existsSync(winswExe)) {
+        return { ok: false, output: 'winsw.exe not found. Download WinSW v3 and place it in electron/service/windows/.' };
+      }
+      const stop = await runCommand(winswExe, ['stop']);
+      const uninstall = await runCommand(winswExe, ['uninstall']);
+      return runCommand(winswExe, ['install']);
+    }
+
+    if (platform === 'darwin') {
+      const plist = path.join(SERVICE_DIR, 'macos', 'com.fideon.backend.plist');
+      const dest = path.join(app.getPath('home'), 'Library', 'LaunchAgents', 'com.fideon.backend.plist');
+      fs.copyFileSync(plist, dest);
+      return runCommand('launchctl', [
+        'bootstrap',
+        `gui/${process.getuid()}`,
+        dest,
+      ]);
+    }
+
+    if (platform === 'linux') {
+      const svcFile = path.join(SERVICE_DIR, 'linux', 'fideon-backend.service');
+      const dest = path.join(app.getPath('home'), '.config', 'systemd', 'user', 'fideon-backend.service');
+      fs.mkdirSync(path.dirname(dest), { recursive: true });
+      fs.copyFileSync(svcFile, dest);
+      await runCommand('systemctl', ['--user', 'daemon-reload']);
+      await runCommand('systemctl', ['--user', 'enable', 'fideon-backend']);
+      return runCommand('systemctl', ['--user', 'start', 'fideon-backend']);
+    }
+
+    return { ok: false, output: `Unsupported platform: ${platform}` };
+  } catch (err) {
+    return { ok: false, output: err.message };
+  }
+});
+
+ipcMain.handle('service:uninstall', async () => {
+  const platform = process.platform;
+  try {
+    if (platform === 'win32') {
+      const winswExe = path.join(SERVICE_DIR, 'windows', 'winsw.exe');
+      await runCommand(winswExe, ['stop']);
+      return runCommand(winswExe, ['uninstall']);
+    }
+
+    if (platform === 'darwin') {
+      const dest = path.join(app.getPath('home'), 'Library', 'LaunchAgents', 'com.fideon.backend.plist');
+      const result = await runCommand('launchctl', [
+        'bootout',
+        `gui/${process.getuid()}`,
+        dest,
+      ]);
+      try { fs.unlinkSync(dest); } catch {}
+      return result;
+    }
+
+    if (platform === 'linux') {
+      await runCommand('systemctl', ['--user', 'stop', 'fideon-backend']);
+      await runCommand('systemctl', ['--user', 'disable', 'fideon-backend']);
+      const dest = path.join(app.getPath('home'), '.config', 'systemd', 'user', 'fideon-backend.service');
+      try { fs.unlinkSync(dest); } catch {}
+      return runCommand('systemctl', ['--user', 'daemon-reload']);
+    }
+
+    return { ok: false, output: `Unsupported platform: ${platform}` };
+  } catch (err) {
+    return { ok: false, output: err.message };
+  }
+});
+
+ipcMain.handle('service:status', async () => {
+  const platform = process.platform;
+  try {
+    if (platform === 'win32') {
+      const winswExe = path.join(SERVICE_DIR, 'windows', 'winsw.exe');
+      if (!fs.existsSync(winswExe)) return { installed: false, running: false, output: 'winsw.exe not found' };
+      const result = await runCommand(winswExe, ['status']);
+      const running = result.output.toLowerCase().includes('started');
+      return { installed: result.ok, running, output: result.output };
+    }
+
+    if (platform === 'darwin') {
+      const result = await runCommand('launchctl', [
+        'print',
+        `gui/${process.getuid()}/com.fideon.backend`,
+      ]);
+      const running = result.ok && result.output.includes('pid');
+      return { installed: result.ok, running, output: result.output };
+    }
+
+    if (platform === 'linux') {
+      const result = await runCommand('systemctl', ['--user', 'is-active', 'fideon-backend']);
+      const running = result.output.trim() === 'active';
+      const enabled = await runCommand('systemctl', ['--user', 'is-enabled', 'fideon-backend']);
+      return { installed: enabled.output.trim() === 'enabled', running, output: result.output };
+    }
+
+    return { installed: false, running: false, output: `Unsupported platform: ${platform}` };
+  } catch (err) {
+    return { installed: false, running: false, output: err.message };
+  }
+});
 
 ipcMain.handle('network:check-status', async () => {
   try {

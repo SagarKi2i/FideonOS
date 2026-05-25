@@ -11,7 +11,7 @@ const nextConfig: NextConfig = {
     return [
       { source: '/inbox',           destination: '/approvals',             permanent: true },
       { source: '/work',            destination: '/approvals',             permanent: true },
-      { source: '/mailbox',         destination: '/approvals',             permanent: true },
+      { source: '/mailbox',         destination: '/email',                 permanent: false },
       { source: '/review-queue',    destination: '/approvals',             permanent: false },
       { source: '/workflows',       destination: '/request-pod',           permanent: true },
       { source: '/schedules',       destination: '/automations',           permanent: true },
@@ -19,6 +19,7 @@ const nextConfig: NextConfig = {
       { source: '/integrations',    destination: '/settings?tab=carriers', permanent: true },
       { source: '/dashboard',       destination: '/today',                 permanent: true },
       { source: '/connections/mcp', destination: '/connect',               permanent: true },
+      { source: '/mailbox',         destination: '/email',                 permanent: false },
     ];
   },
 };

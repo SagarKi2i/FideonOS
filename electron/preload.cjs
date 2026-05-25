@@ -49,4 +49,11 @@ contextBridge.exposeInMainWorld('electron', {
   network: {
     checkStatus: () => ipcRenderer.invoke('network:check-status'),
   },
+
+  // FNF-425 / 426 / 427 / 428 — system service management
+  service: {
+    install:   () => ipcRenderer.invoke('service:install'),
+    uninstall: () => ipcRenderer.invoke('service:uninstall'),
+    status:    () => ipcRenderer.invoke('service:status'),
+  },
 });

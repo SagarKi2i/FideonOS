@@ -33,6 +33,8 @@ const ROUTE_LABELS: Record<string, string> = {
   "request-pod": "Request a custom pod",
   schedules: "Schedules",
   mailbox: "Mailbox",
+  email: "Email box",
+  "electron-playground": "Electron Playground",
   admin: "Admin",
   devices: "Devices",
   pending: "Approvals",
