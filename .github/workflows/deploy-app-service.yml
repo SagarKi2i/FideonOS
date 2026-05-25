@@ -163,6 +163,7 @@ jobs:
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           VALKEY_URL: ${{ secrets.VALKEY_URL }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          OTP_BYPASS_EMAILS: ${{ secrets.OTP_BYPASS_EMAILS }}
           # ── Frontend (NEXT_PUBLIC_* baked at build; re-applied for SSR) ───
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -263,6 +264,9 @@ jobs:
           fi
           if [ -n "$VALKEY_URL" ]; then
             SETTINGS+=("VALKEY_URL=${VALKEY_URL}")
+          fi
+          if [ -n "$OTP_BYPASS_EMAILS" ]; then
+            SETTINGS+=("OTP_BYPASS_EMAILS=${OTP_BYPASS_EMAILS}")
           fi
           # RS256 keys: config.py reads the *_B64 vars in priority over the on-disk PEM paths.
           # Required for login / JWT issuance unless the PEMs are baked into the image (backend/keys/).
