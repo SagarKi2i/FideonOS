@@ -11,5 +11,9 @@
   "otp_rate_window_requests": 5,
   "otp_rate_window_minutes": 60,
 
+  "login_rate_per_minute": 20,
+  "login_rate_ip_per_hour": 50,
+  "login_rate_email_per_hour": 20,
+
   "geo_anomaly_threshold_minutes": 60
 }
