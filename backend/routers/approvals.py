@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Any
 import uuid
 from datetime import datetime, timezone
@@ -15,6 +15,7 @@ _NOT_READY = "decision_reviews/training_examples table not provisioned yet (see 
 
 
 class TrainingExampleCreate(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())  # model_id is a domain field
     review_id: str | None = None
     model_id: str
     prompt: str

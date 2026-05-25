@@ -1,4 +1,4 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 from typing import Any
 from datetime import datetime
 from uuid import UUID
@@ -17,6 +17,7 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())  # model_id is a domain field, not Pydantic's reserved prefix
     messages: list[ChatMessage]
     conversation_id: str | None = None
     model_id: str | None = None
@@ -42,6 +43,7 @@ class DeviceStatusUpdate(BaseModel):
 
 class DeviceModelAllocate(BaseModel):
     """POST /api/devices/{device_id}/allocations — allocate an agent's model to a device."""
+    model_config = ConfigDict(protected_namespaces=())  # model_name is a domain field
     agent_id: UUID
     model_name: str
     notes: str | None = None
@@ -82,6 +84,7 @@ class AgentRunApproval(BaseModel):
 
 class ActivateAgentRequest(BaseModel):
     """POST /api/agents — body: { agent_id: UUID, model_name, domain }"""
+    model_config = ConfigDict(protected_namespaces=())  # model_name is a domain field
     agent_id: UUID
     model_name: str
     domain: str
@@ -91,6 +94,7 @@ class ActivateAgentRequest(BaseModel):
 
 class AgentActivationRequestCreate(BaseModel):
     """POST /api/agent-requests — request access to an existing marketplace agent"""
+    model_config = ConfigDict(protected_namespaces=())  # model_name is a domain field
     agent_id: UUID
     model_name: str
 
@@ -147,6 +151,7 @@ class DecisionReviewUpdate(BaseModel):
 
 # ── Training ──────────────────────────────────────────────────────────────────
 class FeedbackSubmit(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())  # model_id is a domain field
     model_id: str
     prompt: str
     original_response: str
@@ -156,12 +161,14 @@ class FeedbackSubmit(BaseModel):
 
 
 class TrainingJobCreate(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())  # model_id is a domain field
     model_id: str
     training_type: str = "fine-tune"
     config: dict[str, Any] = {}
 
 
 class GradientSubmit(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())  # model_id is a domain field
     model_id: str
     round_number: int
     gradient_hash: str
