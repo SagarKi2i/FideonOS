@@ -1,0 +1,26 @@
+# Build context exclusions for frontend/docker/Dockerfile (context = frontend/).
+# Dependencies are installed fresh via `npm ci` and the app is rebuilt with
+# `npm run build`, so host-side node_modules / .next must not be copied in.
+
+# Installed deps & build output (regenerated inside the image)
+node_modules/
+.next/
+out/
+
+# Local env / secrets — NEXT_PUBLIC_* are passed as build args in CI, not via .env
+.env.local
+.env*.local
+
+# TypeScript incremental build cache (large, machine-specific)
+*.tsbuildinfo
+
+# Docker assets (not needed inside the image)
+docker/
+
+# Logs / VCS / editor
+npm-debug.log*
+yarn-error.log*
+.git/
+.gitignore
+.vscode/
+.idea/

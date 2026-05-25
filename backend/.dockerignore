@@ -1,0 +1,36 @@
+# Build context exclusions for backend/Dockerfile.
+# Keep dev-only secrets and local cruft out of the image. Production config is
+# injected as App Service / container env vars (see .github/workflows/deploy-app-service.yml),
+# which override any baked .env via config.py's settings source priority.
+
+# Local environment / secrets (NOT baked into the image)
+.env
+.env.*
+!.env.example
+
+# Python caches & build artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtualenvs (image installs deps fresh from requirements.txt)
+venv/
+.venv/
+
+# Local runtime output
+logs/
+*.log
+
+# VCS / editor
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# NOTE: backend/keys/ (RS256 PEMs) is intentionally NOT ignored so existing
+# deploys that rely on baked keys keep working. Preferred path is to stop baking
+# them and supply JWT_PRIVATE_KEY_B64 / JWT_PUBLIC_KEY_B64 as env (config.py
+# reads those first); once those secrets are set, add `keys/` here.

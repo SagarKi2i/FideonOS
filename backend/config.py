@@ -16,7 +16,12 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_service_role_key: str
     environment: str = "development"   # "development" | "production"
-    anthropic_api_key: str
+    # Optional: the platform is moving to a self-hosted SLM (no external AI), so the
+    # backend boots without an Anthropic key. The chat / workflow-ai endpoints that
+    # call services/anthropic.py will 401 at call time until a key is set or the SLM
+    # swap lands; every other endpoint runs normally. The client is built lazily
+    # (services/anthropic.py:get_anthropic), so an empty key never breaks startup.
+    anthropic_api_key: str = ""
     anthropic_model: str = "claude-sonnet-4-6"
     anthropic_max_tokens: int = 4096
     frontend_url: str = "http://localhost:3000"
@@ -61,7 +66,7 @@ class Settings(BaseSettings):
     geo_anomaly_threshold_minutes: int = 60
 
     # Valkey
-    valkey_url: str = "redis://localhost:6379"
+    valkey_url: str = "valkey://localhost:6379"
 
     model_config = SettingsConfigDict(
         env_file=str(_BASE_DIR / ".env"),

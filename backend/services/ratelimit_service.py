@@ -11,11 +11,11 @@ from services.crypto import sha256_hex
 _memory_store: dict[str, list[float]] = defaultdict(list)
 
 
-def _get_redis():
+def _get_valkey():
     try:
-        import redis
+        import valkey
         from config import settings
-        r = redis.from_url(settings.valkey_url, decode_responses=True, socket_connect_timeout=1)
+        r = valkey.from_url(settings.valkey_url, decode_responses=True, socket_connect_timeout=1)
         r.ping()
         return r
     except Exception:
@@ -34,7 +34,7 @@ def _check_in_memory(key: str, limit: int, window_seconds: int) -> bool:
 
 def check_rate_limit(key: str, limit: int, window_seconds: int) -> bool:
     """Return True if request is allowed, False if rate-limited."""
-    r = _get_redis()
+    r = _get_valkey()
     if r is None:
         return _check_in_memory(key, limit, window_seconds)
     pipe = r.pipeline()

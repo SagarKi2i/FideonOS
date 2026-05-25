@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Emit a self-contained server bundle into .next/standalone so the Docker
+  // runner stage (frontend/docker/Dockerfile) can run `node server.js`.
+  output: "standalone",
   serverExternalPackages: ["pptxgenjs", "xlsx", "jspdf", "html2canvas"],
   images: { unoptimized: true },
   trailingSlash: false,

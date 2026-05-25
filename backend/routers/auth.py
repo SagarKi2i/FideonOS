@@ -684,8 +684,8 @@ async def electron_otc(current_user=Depends(get_current_user)):
     otc_hash = sha256_hex(raw_otc)
 
     try:
-        import redis
-        r = redis.from_url(settings.valkey_url, decode_responses=True, socket_connect_timeout=1)
+        import valkey
+        r = valkey.from_url(settings.valkey_url, decode_responses=True, socket_connect_timeout=1)
         r.setex(otc_hash, 90, str(current_user["id"]))
     except Exception:
         raise HTTPException(
@@ -706,8 +706,8 @@ async def electron_token(body: ElectronTokenBody):
 
     user_id = None
     try:
-        import redis
-        r = redis.from_url(settings.valkey_url, decode_responses=True, socket_connect_timeout=1)
+        import valkey
+        r = valkey.from_url(settings.valkey_url, decode_responses=True, socket_connect_timeout=1)
         user_id = r.get(otc_hash)
         if user_id:
             r.delete(otc_hash)

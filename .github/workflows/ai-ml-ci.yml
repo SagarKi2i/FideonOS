@@ -1,0 +1,109 @@
+name: AI-ML Docker Build & Push
+
+on:
+  push:
+    branches:
+      - '[vV]*-dev'
+      - 'v*-staging'
+      - 'v1.2'
+    paths:
+      - 'ai-ml/**'
+      - '.github/workflows/ai-ml-ci.yml'
+
+  workflow_dispatch:
+
+concurrency:
+  group: ai-ml-ci-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: ${{ github.ref_name == 'v1.2' && 'production' || github.ref_name == 'v1.2-staging' && 'staging' || 'development' }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: SonarQube Scan
+        if: >
+          (github.event_name == 'pull_request' && github.base_ref == 'V1.2-dev') ||
+          (github.event_name == 'push' && github.ref == 'refs/heads/V1.2-dev')
+        continue-on-error: true
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        with:
+          projectBaseDir: ai-ml
+
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo docker image prune -af
+          df -h
+
+      - name: Login to ACR
+        run: |
+          echo "${{ secrets.AZURE_CR_PASSWORD }}" | \
+            docker login neurapodacr.azurecr.io \
+              -u "${{ secrets.AZURE_CR_USERNAME }}" \
+              --password-stdin
+
+      - name: Build Docker Image
+        if: >
+          github.event_name == 'push' ||
+          github.event_name == 'workflow_dispatch'
+        run: |
+          docker build \
+            -t neurapodacr.azurecr.io/fideon-ai-ml:${{ github.sha }} \
+            -t neurapodacr.azurecr.io/fideon-ai-ml:latest \
+            ./ai-ml
+
+      - name: Push to ACR
+        if: |
+          (github.event_name == 'push' && (
+            github.ref == 'refs/heads/V1.2-dev' ||
+            github.ref == 'refs/heads/v1.2-staging' ||
+            github.ref == 'refs/heads/v1.2'
+          )) ||
+          github.event_name == 'workflow_dispatch'
+        run: |
+          docker push neurapodacr.azurecr.io/fideon-ai-ml:${{ github.sha }}
+          docker push neurapodacr.azurecr.io/fideon-ai-ml:latest
+          echo "Pushed neurapodacr.azurecr.io/fideon-ai-ml:${{ github.sha }}"
+
+      - name: Update & Restart RunPod Pod
+        if: |
+          (github.event_name == 'push' && (
+            github.ref == 'refs/heads/V1.2-dev' ||
+            github.ref == 'refs/heads/v1.2-staging' ||
+            github.ref == 'refs/heads/v1.2'
+          )) ||
+          github.event_name == 'workflow_dispatch'
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+          RUNPOD_POD_ID: ${{ secrets.RUNPOD_POD_ID }}
+          NEW_IMAGE: neurapodacr.azurecr.io/fideon-ai-ml:${{ github.sha }}
+        run: |
+          echo "Stopping pod $RUNPOD_POD_ID..."
+          curl -s --request POST \
+            --header 'Content-Type: application/json' \
+            --header "Authorization: Bearer $RUNPOD_API_KEY" \
+            --data "{\"query\": \"mutation { podStop(input: { podId: \\\"$RUNPOD_POD_ID\\\" }) { id desiredStatus } }\"}" \
+            https://api.runpod.io/graphql
+
+          echo "Waiting for pod to stop..."
+          sleep 15
+
+          echo "Starting pod with new image: $NEW_IMAGE"
+          curl -s --request POST \
+            --header 'Content-Type: application/json' \
+            --header "Authorization: Bearer $RUNPOD_API_KEY" \
+            --data "{\"query\": \"mutation { podResume(input: { podId: \\\"$RUNPOD_POD_ID\\\", imageName: \\\"$NEW_IMAGE\\\" }) { id desiredStatus } }\"}" \
+            https://api.runpod.io/graphql
