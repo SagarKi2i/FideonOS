@@ -1,0 +1,4 @@
+project_id = "exbwnwkfozbrgvhxzbyh"
+
+# Edge functions removed — all API logic now lives in the FastAPI backend.
+# Run: cd backend && uvicorn main:app --reload --port 8000

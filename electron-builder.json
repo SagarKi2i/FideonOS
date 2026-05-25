@@ -1,0 +1,20 @@
+{
+  "appId": "com.neurapod.ai",
+  "productName": "NeuraPod AI",
+  "main": "electron/main.cjs",
+  "directories": {
+    "output": "electron-dist"
+  },
+  "files": [
+    "electron/**/*",
+    "frontend/.next/standalone/**/*",
+    "frontend/.next/static/**/*",
+    "frontend/public/**/*"
+  ],
+  "extraMetadata": {
+    "main": "electron/main.cjs"
+  },
+  "mac": { "target": ["dmg"] },
+  "win": { "target": ["nsis"] },
+  "linux": { "target": ["AppImage"] }
+}

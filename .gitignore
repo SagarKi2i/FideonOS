@@ -1,0 +1,69 @@
+# ===== Secrets / keys =====
+backend/keys/
+*.pem
+*.key
+.env
+.env.*
+!.env.example
+!.env.local.example
+!*.env.example
+
+# ===== Node / Next.js (frontend) =====
+node_modules/
+frontend/node_modules/
+.next/
+frontend/.next/
+out/
+frontend/out/
+next-env.d.ts
+*.tsbuildinfo
+frontend/tsconfig.tsbuildinfo
+.turbo/
+
+# ===== Python / FastAPI (backend) =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+.venv/
+env/
+backend/venv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ===== Electron / build output =====
+dist/
+build/
+release/
+*.exe
+*.dmg
+*.AppImage
+
+# ===== Remotion =====
+remotion/out/
+
+# ===== Supabase =====
+supabase/.branches/
+supabase/.temp/
+
+# ===== Logs =====
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# ===== OS / Editor =====
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# ===== Misc =====
+*.zip
+.codesight/
+coverage/
