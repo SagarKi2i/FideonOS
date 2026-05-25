@@ -1,7 +1,6 @@
 {
-  "appId": "com.neurapod.ai",
-  "productName": "NeuraPod AI",
-  "main": "electron/main.cjs",
+  "appId": "com.fideon.os",
+  "productName": "Fideon OS",
   "directories": {
     "output": "electron-dist"
   },
@@ -11,10 +10,34 @@
     "frontend/.next/static/**/*",
     "frontend/public/**/*"
   ],
-  "extraMetadata": {
-    "main": "electron/main.cjs"
+  "extraFiles": [
+    {
+      "from": "frontend/.next/static",
+      "to": "frontend/.next/static"
+    },
+    {
+      "from": "frontend/public",
+      "to": "frontend/public"
+    }
+  ],
+  "win": {
+    "target": [{ "target": "portable", "arch": ["x64"] }],
+    "icon": "electron/assets/icon.png",
+    "signingHashAlgorithms": [],
+    "sign": null
   },
-  "mac": { "target": ["dmg"] },
-  "win": { "target": ["nsis"] },
-  "linux": { "target": ["AppImage"] }
+  "mac": {
+    "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }],
+    "icon": "electron/assets/icon.png"
+  },
+  "linux": {
+    "target": [{ "target": "AppImage", "arch": ["x64"] }],
+    "icon": "electron/assets/icon.png"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true
+  }
 }
