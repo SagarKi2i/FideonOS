@@ -27,8 +27,9 @@
 ## Open blockers (must resolve before coding)
 - [x] fideon:// sub-path routing — RESOLVED: `fideon://auth?otc=<value>`
        see .claude/interfaces/ipc_contract.md §1
-- [ ] Valkey location confirmed with MLOps
-       see mlops/docs/azure_infra.md
+- [~] Valkey location confirmed: standalone container on the Supabase Azure VM.
+       Dev wired (public-IP path); staging/prod still need private/VNet setup.
+       see mlops/docs/valkey_setup.md
 - [x] auth:set-token IPC — RESOLVED: eliminated (old Supabase design, not implemented)
        see .claude/interfaces/electron_auth_handoff.md §5
 

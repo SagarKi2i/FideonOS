@@ -26,6 +26,17 @@ class Settings(BaseSettings):
     anthropic_max_tokens: int = 4096
     frontend_url: str = "http://localhost:3000"
 
+    # Auth cookie cross-site behavior.
+    # The frontend and API are on DIFFERENT sites in every deployed env
+    # (frontend on *.azurewebsites.net, API behind APIM on *.azure-api.net), so the
+    # auth cookies are cross-site and MUST be SameSite=None; Secure — otherwise the
+    # browser drops the cookie on the /auth/me fetch right after login and the user
+    # is bounced back to the sign-in page. localhost is a secure context, so Secure
+    # cookies also work for same-site local dev. Override via .env only if you run a
+    # same-site local setup that needs plain-http cookies (cookie_samesite="lax").
+    cookie_samesite: str = "none"   # "none" | "lax" | "strict"
+    cookie_secure: bool = True
+
     # RS256 JWT keys.
     # In production (Azure / GitHub Actions) the PEM files are not committed.
     # Provide the base64-encoded PEM contents via env instead; these take
