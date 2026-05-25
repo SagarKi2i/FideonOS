@@ -2,6 +2,7 @@
 import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from "react";
 import { authApi } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +15,7 @@ export default function OtpPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [isStepUp, setIsStepUp] = useState(false);
   const { toast } = useToast();
+  const { refresh } = useAuth();
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -52,10 +54,12 @@ export default function OtpPage() {
 
       sessionStorage.removeItem("otp_email");
       sessionStorage.removeItem("otp_step_up");
+      // Refresh the in-memory user BEFORE navigating — otherwise the (app) layout
+      // guard sees the stale null user and bounces straight back to /auth.
+      await refresh();
       // Everyone — users and admins alike — lands on their personal dashboard.
       // Admins reach the admin console from the in-app nav, not as a forced landing.
       router.replace("/today");
-      router.refresh();
     } catch (error: any) {
       toast({ title: "Verification failed", description: error.message, variant: "destructive" });
     } finally {

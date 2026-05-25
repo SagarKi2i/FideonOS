@@ -1,6 +1,7 @@
 "use client";
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
@@ -21,6 +22,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   isAdmin: boolean;
+  refresh: () => Promise<AuthUser | null>;
   signOut: () => Promise<void>;
 }
 
@@ -28,6 +30,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
   isAdmin: false,
+  refresh: async () => null,
   signOut: async () => {},
 });
 
@@ -38,13 +41,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    fetch(`${API_URL}/api/auth/me`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setUser(data))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+  // Re-fetchable so post-login flows (OTP verify, OTP-bypass login) can refresh
+  // the in-memory user without a full page reload. Client-side navigation does
+  // NOT remount this provider, so without an explicit refresh the user stays
+  // null after login and the (app) layout guard bounces back to /auth.
+  const refresh = useCallback(async (): Promise<AuthUser | null> => {
+    try {
+      const r = await fetch(`${API_URL}/api/auth/me`, { credentials: "include" });
+      const data = r.ok ? ((await r.json()) as AuthUser) : null;
+      setUser(data);
+      return data;
+    } catch {
+      setUser(null);
+      return null;
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   const signOut = async () => {
     await fetch(`${API_URL}/api/auth/logout`, {
@@ -61,6 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         isAdmin: user?.role === "admin",
+        refresh,
         signOut,
       }}
     >
