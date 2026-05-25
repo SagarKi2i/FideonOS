@@ -2,7 +2,7 @@
   "appId": "com.fideon.os",
   "productName": "Fideon OS",
   "directories": {
-    "output": "electron-dist"
+    "output": "electron/dist"
   },
   "files": [
     "electron/**/*",
