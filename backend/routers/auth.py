@@ -39,29 +39,29 @@ def _audit(sb, action: str, user_id, resource_type: str, resource_id=None,
         pass
 
 
-def _is_secure() -> bool:
-    return settings.environment == "production"
+# Frontend and API are on different sites (see config.cookie_samesite), so auth
+# cookies are cross-site: SameSite=None + Secure, or the browser drops them.
+_COOKIE_SAMESITE = settings.cookie_samesite
+_COOKIE_SECURE = settings.cookie_secure
 
 
 def _set_tokens(response: Response, access_token: str, refresh_token: str | None = None):
-    secure = _is_secure()
     access_max = settings.jwt_access_expiry_minutes * 60
-    response.set_cookie("access_token", access_token, httponly=True, secure=secure,
-                        samesite="strict",
+    response.set_cookie("access_token", access_token, httponly=True, secure=_COOKIE_SECURE,
+                        samesite=_COOKIE_SAMESITE,
                         path="/", max_age=access_max)
     if refresh_token:
         refresh_max = settings.jwt_refresh_expiry_days * 86400
-        response.set_cookie("refresh_token", refresh_token, httponly=True, secure=secure,
-                            samesite="strict",
+        response.set_cookie("refresh_token", refresh_token, httponly=True, secure=_COOKIE_SECURE,
+                            samesite=_COOKIE_SAMESITE,
                             path="/api/auth/token/refresh", max_age=refresh_max)
 
 
 def _clear_tokens(response: Response):
-    secure = _is_secure()
-    response.set_cookie("access_token", "", httponly=True, secure=secure,
-                        samesite="strict", path="/", max_age=0)
-    response.set_cookie("refresh_token", "", httponly=True, secure=secure,
-                        samesite="strict",
+    response.set_cookie("access_token", "", httponly=True, secure=_COOKIE_SECURE,
+                        samesite=_COOKIE_SAMESITE, path="/", max_age=0)
+    response.set_cookie("refresh_token", "", httponly=True, secure=_COOKIE_SECURE,
+                        samesite=_COOKIE_SAMESITE,
                         path="/api/auth/token/refresh", max_age=0)
 
 
