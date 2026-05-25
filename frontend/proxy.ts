@@ -1,49 +1,27 @@
-import { jwtVerify, importSPKI } from "jose";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-const PUBLIC_PATHS = [
-  "/auth",
-  "/signup",
-  "/reset-password",
-  "/_next",
-  "/favicon",
-  "/api",
-];
-
-// Parse the RSA public key once per server process, not on every request.
-// importSPKI is relatively expensive; re-importing it per request was the bulk
-// of this middleware's latency on every protected page load.
-let _publicKeyPromise: ReturnType<typeof importSPKI> | null = null;
-function getPublicKey() {
-  if (!_publicKeyPromise) {
-    _publicKeyPromise = importSPKI(process.env.JWT_PUBLIC_KEY_PEM!, "RS256");
-  }
-  return _publicKeyPromise;
-}
-
-export async function proxy(request: NextRequest) {
-  const { pathname } = request.nextUrl;
-
-  const isPublic = PUBLIC_PATHS.some((p) => pathname.startsWith(p)) || pathname.includes(".");
-  if (isPublic) return NextResponse.next();
-
-  const accessToken = request.cookies.get("access_token")?.value;
-  if (!accessToken) {
-    const loginUrl = new URL("/auth", request.url);
-    loginUrl.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
-
-  try {
-    const publicKey = await getPublicKey();
-    await jwtVerify(accessToken, publicKey);
-    return NextResponse.next();
-  } catch {
-    const loginUrl = new URL("/auth", request.url);
-    loginUrl.searchParams.set("redirectTo", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
+// NOTE: This middleware intentionally does NOT gate routes on the access_token
+// cookie.
+//
+// The frontend (*.azurewebsites.net) and the API behind APIM (*.azure-api.net)
+// are on different registrable domains, so the auth cookie set by the API is
+// scoped to the API's domain. The browser sends it on cross-origin fetches
+// (credentials: "include"), which is why /api/auth/me succeeds client-side — but
+// it is NEVER sent to the frontend's own server. So a server-side cookie check
+// here can never see the cookie and would redirect every authenticated user back
+// to /auth, producing an /auth <-> /today bounce loop.
+//
+// Route protection is enforced where it actually works:
+//   1. Client-side: app/(app)/layout.tsx redirects to /auth when /me returns no
+//      user. The protected page only ever renders a loading shell before that.
+//   2. Server-side: every API endpoint validates the JWT itself, so no protected
+//      DATA is reachable without a valid token regardless of routing.
+//
+// If the apps are ever unified under one parent domain (cookie Domain=.fideon...)
+// or the API is proxied same-origin through Next, restore a jwtVerify gate here.
+export function proxy(_request: NextRequest) {
+  return NextResponse.next();
 }
 
 export const config = {
