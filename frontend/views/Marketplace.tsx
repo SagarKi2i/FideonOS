@@ -359,14 +359,17 @@ export default function Marketplace() {
                 return (
                   <section key={lane.id}>
                     {/* Lane header */}
-                    <div className="flex items-center gap-2 mb-3">
-                      <lane.icon className="h-3.5 w-3.5 text-muted-foreground" />
-                      <h2 className="text-[13px] font-bold text-foreground tracking-tight">
-                        {lane.label}
-                      </h2>
-                      <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">{items.length}</span>
-                      <span className="text-[12px] text-muted-foreground">·</span>
-                      <span className="text-[12px] text-muted-foreground">{lane.description}</span>
+                    <div className="mb-3">
+                      <div className="flex items-center gap-2">
+                        <lane.icon className="h-3.5 w-3.5 text-muted-foreground" />
+                        <h2 className="text-[14px] font-bold text-foreground tracking-tight">
+                          {lane.label}
+                        </h2>
+                        <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-muted text-[11px] font-bold text-muted-foreground tabular-nums">
+                          {items.length}
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-muted-foreground mt-0.5 pl-[22px]">{lane.description}</p>
                     </div>
                     <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                       {items.map((agent) => (
@@ -531,44 +534,34 @@ function AgentCard({
               : "hover:border-border-strong hover:shadow-sm hover:-translate-y-px",
       )}
     >
-      {/* Live dot — top right, matches screenshot green dot */}
+      {/* Live dot — top right: always shows the agent's catalog status, never activation state */}
       <div className="absolute top-3 right-3 z-10">
-        {activated ? (
-          <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-emerald-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            ACTIVE
-          </span>
-        ) : pending ? (
-          <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-amber-600">
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-            PENDING
-          </span>
-        ) : agent.status === "live" ? (
+        {agent.status === "live" ? (
           <span className="inline-flex items-center gap-1 text-[10.5px] font-semibold text-emerald-600">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             LIVE
           </span>
+        ) : agent.status === "beta" ? (
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">BETA</span>
         ) : (
-          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            {agent.status === "beta" ? "BETA" : "SOON"}
-          </span>
+          <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">SOON</span>
         )}
       </div>
 
       {/* Card body */}
       <button onClick={onView} className="text-left p-4 pb-3 flex-1">
         {/* Icon + name + category */}
-        <div className="flex items-start gap-3 pr-16 mb-2.5">
+        <div className="flex items-start gap-3 pr-14 mb-3">
           <div className={cn(
-            "h-9 w-9 rounded-lg flex items-center justify-center shrink-0 transition-colors",
+            "h-11 w-11 rounded-xl flex items-center justify-center shrink-0 transition-colors",
             activated
               ? "bg-primary text-primary-foreground"
-              : "bg-indigo-100 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400",
+              : "bg-indigo-600 text-white dark:bg-indigo-500",
           )}>
-            <Icon className="h-4 w-4" />
+            <Icon className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1 pt-0.5">
-            <h3 className="text-[13.5px] font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+            <h3 className="text-[14px] font-bold text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
               {agent.name}
             </h3>
             {(agent.category || agent.segment) && (
@@ -598,12 +591,14 @@ function AgentCard({
           <Settings className="h-3.5 w-3.5" />
         </button>
         {activated ? (
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-md px-2.5 py-1">
-            <CheckCircle2 className="h-3 w-3" />Active
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            ACTIVE
           </span>
         ) : pending ? (
-          <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-600 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md px-2.5 py-1">
-            <ClockIcon className="h-3 w-3" />Pending
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600">
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+            PENDING
           </span>
         ) : (
           <Button
@@ -633,7 +628,7 @@ function AgentCardSkeleton() {
       </div>
       <div className="p-4 pb-3 flex-1 space-y-3">
         <div className="flex items-start gap-3 pr-14">
-          <Skeleton className="h-9 w-9 rounded-lg shrink-0 bg-indigo-100/70 dark:bg-indigo-950/30" />
+          <Skeleton className="h-11 w-11 rounded-xl shrink-0 bg-indigo-200/60 dark:bg-indigo-950/40" />
           <div className="flex-1 space-y-1.5 pt-0.5">
             <SkeletonLine className="w-3/4 h-3.5" />
             <SkeletonLine className="w-1/3 h-2" />

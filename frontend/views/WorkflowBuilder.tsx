@@ -563,11 +563,13 @@ function StepCard({
         "rounded border transition-colors",
         expanded ? "border-primary/30 bg-accent/20" : "border-border bg-card hover:border-border-strong",
       )}>
-        {/* Header row */}
-        <button
-          type="button"
+        {/* Header row — div instead of button to avoid nested <button> hydration error */}
+        <div
+          role="button"
+          tabIndex={0}
           onClick={onToggle}
-          className="w-full text-left px-3 py-2.5 flex items-center gap-3"
+          onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && onToggle()}
+          className="w-full text-left px-3 py-2.5 flex items-center gap-3 cursor-pointer select-none"
         >
           <GripVertical className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
           <div className="h-6 w-6 rounded bg-muted text-foreground/80 flex items-center justify-center text-[11px] font-bold tabular-nums shrink-0">
@@ -591,7 +593,7 @@ function StepCard({
             </Button>
             <Chevron className="h-4 w-4 text-muted-foreground ml-1" />
           </div>
-        </button>
+        </div>
 
         {/* Body */}
         {expanded && (

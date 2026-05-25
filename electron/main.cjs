@@ -2,9 +2,62 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const { execFile, exec, spawn } = require('child_process');
 const fs = require('fs');
+const net = require('net');
 
 let mainWindow;
 const isDev = process.env.NODE_ENV === 'development';
+
+// ── Embedded Next.js server (production only) ─────────────────────────────────
+// In dev we rely on `next dev` running separately.
+// In prod the Next.js standalone bundle is packaged inside the app and we
+// spawn it here so QA / end-users need no separate server.
+const NEXT_PORT = 3000;
+let nextProc = null;
+
+function getResourcesPath() {
+  // In a packaged app, process.resourcesPath points to the resources folder.
+  // In dev (electron electron/main.cjs) it isn't set, so we fall back to repo root.
+  return process.resourcesPath || path.join(__dirname, '..');
+}
+
+function startNextServer() {
+  if (isDev) return; // dev uses `next dev` separately
+  const resourcesPath = getResourcesPath();
+  // electron-builder copies frontend/.next/standalone/** into resources root
+  const serverScript = path.join(resourcesPath, 'frontend', '.next', 'standalone', 'server.js');
+  if (!fs.existsSync(serverScript)) {
+    console.error('[next-server] standalone server.js not found at', serverScript);
+    return;
+  }
+  const env = {
+    ...process.env,
+    PORT: String(NEXT_PORT),
+    NODE_ENV: 'production',
+    // Static files and public assets are in resources alongside standalone
+    NEXT_PUBLIC_STATIC_PATH: path.join(resourcesPath, 'frontend', '.next', 'static'),
+  };
+  nextProc = spawn(process.execPath, [serverScript], {
+    cwd: path.dirname(serverScript),
+    env,
+    stdio: 'inherit',
+  });
+  nextProc.on('error', (err) => console.error('[next-server] error:', err));
+  nextProc.on('exit', (code) => console.log(`[next-server] exited (${code})`));
+}
+
+function waitForPort(port, tries = 40) {
+  return new Promise((resolve) => {
+    const attempt = (n) => {
+      const sock = new net.Socket();
+      sock.setTimeout(500);
+      sock.on('connect', () => { sock.destroy(); resolve(true); });
+      sock.on('error', () => { sock.destroy(); if (n > 0) setTimeout(() => attempt(n - 1), 500); else resolve(false); });
+      sock.on('timeout', () => { sock.destroy(); if (n > 0) setTimeout(() => attempt(n - 1), 500); else resolve(false); });
+      sock.connect(port, '127.0.0.1');
+    };
+    attempt(tries);
+  });
+}
 
 // ── Embedded pod runtime ──────────────────────────────────────────────────────
 // __dirname = electron/  →  runtime scripts live in electron/runtime/
@@ -61,13 +114,7 @@ function createWindow() {
     },
   });
 
-  // Dev: Next.js dev server on port 3000
-  // Prod: Next.js standalone server (start with: node .next/standalone/server.js)
-  const startURL = isDev
-    ? 'http://localhost:3000/runtime-shell'
-    : 'http://localhost:3000/runtime-shell'; // prod: start next server before app.
-
-  mainWindow.loadURL(startURL);
+  mainWindow.loadURL(`http://localhost:${NEXT_PORT}/runtime-shell`);
 
   // DevTools is opt-in (set FIDEON_DEVTOOLS=1) instead of auto-opening every launch.
   if (process.env.FIDEON_DEVTOOLS === '1') {
@@ -77,19 +124,32 @@ function createWindow() {
   mainWindow.on('closed', () => (mainWindow = null));
 }
 
-app.on('ready', () => {
+app.on('ready', async () => {
+  startNextServer();
   startRuntime();
+  if (!isDev) {
+    // Show a loading window while Next.js boots
+    mainWindow = new BrowserWindow({ width: 400, height: 200, frame: false, resizable: false, webPreferences: { contextIsolation: true } });
+    mainWindow.loadURL('data:text/html,<body style="background:#0b0d14;display:flex;align-items:center;justify-content:center;height:100vh;margin:0"><p style="color:#fff;font-family:sans-serif;font-size:14px">Starting Fideon OS…</p></body>');
+    await waitForPort(NEXT_PORT);
+    mainWindow.close();
+    mainWindow = null;
+  }
   createWindow();
 });
 
 app.on('window-all-closed', () => {
   if (runtimeProc) runtimeProc.kill();
+  if (nextProc) nextProc.kill();
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
 
-app.on('before-quit', () => { if (runtimeProc) runtimeProc.kill(); });
+app.on('before-quit', () => {
+  if (runtimeProc) runtimeProc.kill();
+  if (nextProc) nextProc.kill();
+});
 
 app.on('activate', () => {
   if (mainWindow === null) {
