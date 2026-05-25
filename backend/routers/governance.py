@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Any
 import uuid
 from datetime import datetime, timezone
@@ -9,6 +9,7 @@ import json
 
 
 class DecisionCreate(BaseModel):
+    model_config = ConfigDict(protected_namespaces=())  # model_version is a domain field
     domain: str
     decision_type: str
     title: str

@@ -4,6 +4,11 @@ const backendUrl =
   process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000";
 
 const nextConfig: NextConfig = {
+  // Pin the workspace root to this directory. There are two lockfiles in the
+  // tree (frontend/ for the Next app, repo root for the Electron workspace),
+  // so Next would otherwise infer the parent as the root — which breaks
+  // relative resolution like `@config "../tailwind.config.ts"` in globals.css.
+  turbopack: { root: __dirname },
   // Emit a self-contained server bundle into .next/standalone so the Docker
   // runner stage (frontend/docker/Dockerfile) can run `node server.js`.
   output: "standalone",

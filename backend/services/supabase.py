@@ -56,3 +56,21 @@ def is_missing_table_error(exc: Exception) -> bool:
         return True
     msg = str(getattr(exc, "message", "") or exc).lower()
     return "does not exist" in msg or "could not find the table" in msg
+
+
+def is_transient_upstream_error(exc: Exception) -> bool:
+    """True if exc looks like a momentary gateway/PostgREST hiccup, not a real
+    query error.
+
+    The self-hosted stack sits behind Kong. When the gateway returns a plaintext
+    '400 Bad request' (connection reset, brief restart, gateway timeout), the
+    postgrest client can't parse the non-JSON body and rewraps it as the generic
+    'JSON could not be generated' (code 400). Same query succeeds on retry, so
+    callers should surface a retryable 503 instead of a hard 500.
+    """
+    msg = str(getattr(exc, "message", "") or "").lower()
+    if "json could not be generated" in msg:
+        return True
+    code = getattr(exc, "code", None)
+    details = str(getattr(exc, "details", "") or "").lower()
+    return str(code) == "400" and "bad request" in (msg + " " + details)

@@ -7,8 +7,10 @@ from config import settings
 
 logger = logging.getLogger("uvicorn.error")
 
+from postgrest.exceptions import APIError
+
 from routers import auth, chat, devices, workflows, agents, approvals, training, governance, settings as settings_router, admin, mcp, help, workflow_ai, demo, agent_runs, dashboard
-from services.supabase import is_missing_table_error
+from services.supabase import is_missing_table_error, is_transient_upstream_error
 
 app = FastAPI(title="Fideon OS API", version="1.0.0")
 
@@ -32,17 +34,40 @@ app.add_middleware(
 )
 
 
-@app.exception_handler(Exception)
-async def _missing_table_handler(request: Request, exc: Exception):
-    """Any query against a not-yet-provisioned table returns 501 instead of a hard 500.
-    These tables are tracked in backend/docs/pending_tables.md / ALIGNMENT_AND_REMAINING_WORK.md.
-    FastAPI's own HTTPException handler takes precedence, so this only catches unhandled errors.
+@app.exception_handler(APIError)
+async def _postgrest_error_handler(request: Request, exc: APIError):
+    """Classify PostgREST/gateway errors into meaningful HTTP responses.
+
+    Registered for APIError specifically (not the base Exception) so Starlette's
+    inner ExceptionMiddleware handles it and returns cleanly — the base-Exception
+    handler runs in the outer ServerErrorMiddleware, which re-raises afterward and
+    (via the BaseHTTPMiddleware below) logs the traceback twice.
     """
     if is_missing_table_error(exc):
+        # Table owned by a separate workstream, not yet created.
+        # See backend/docs/pending_tables.md / ALIGNMENT_AND_REMAINING_WORK.md.
         return JSONResponse(
             status_code=501,
             content={"detail": "This feature is not provisioned yet (database table missing)."},
         )
+    if is_transient_upstream_error(exc):
+        # Momentary gateway/connection blip — retryable, not an app bug.
+        # One clean warning line instead of a full traceback.
+        logger.warning(
+            "Transient upstream error on %s %s: %s",
+            request.method, request.url.path, exc,
+        )
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "The service is temporarily unavailable. Please retry."},
+        )
+    logger.exception("PostgREST error on %s %s", request.method, request.url.path)
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+
+
+@app.exception_handler(Exception)
+async def _unhandled_error_handler(request: Request, exc: Exception):
+    """Fallback for any non-APIError unhandled exception."""
     # Return (don't re-raise) so the response flows back through CORSMiddleware
     # and carries Access-Control-Allow-Origin. Re-raising produces a 500 above
     # the CORS layer, which the browser then mislabels as a CORS error and hides
