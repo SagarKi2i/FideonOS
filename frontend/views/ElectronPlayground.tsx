@@ -16,6 +16,7 @@ import {
   OllamaModel,
 } from "@/lib/ollama";
 import { Progress } from "@/components/ui/progress";
+import { BackendServicePanel } from "@/components/electron/BackendServicePanel";
 
 export default function ElectronPlayground() {
   const { toast } = useToast();
@@ -258,6 +259,7 @@ export default function ElectronPlayground() {
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <BackendServicePanel />
             {/* Prompt Section */}
             <Card>
               <CardHeader>

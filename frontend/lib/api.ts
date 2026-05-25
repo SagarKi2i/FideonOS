@@ -1,36 +1,40 @@
 "use client";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { ApiUnreachableError, getApiUrl, isNetworkFetchError } from "@/lib/apiBase";
+
+export { ApiUnreachableError, isNetworkFetchError } from "@/lib/apiBase";
+
+async function apiFetchRaw(path: string, options: RequestInit = {}): Promise<Response> {
+  try {
+    return await fetch(`${getApiUrl()}${path}`, {
+      ...options,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(options.headers as Record<string, string> | undefined),
+      },
+    });
+  } catch (error) {
+    if (isNetworkFetchError(error)) throw new ApiUnreachableError();
+    throw error;
+  }
+}
 
 export async function apiFetch<T = unknown>(
   path: string,
   options: RequestInit = {}
 ): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    credentials: "include",
-    headers: {
-      "Content-Type": "application/json",
-      ...(options.headers as Record<string, string> | undefined),
-    },
-  });
+  const res = await apiFetchRaw(path, options);
 
   // Attempt silent token refresh on 401
   if (res.status === 401 && path !== "/api/auth/token/refresh") {
-    const refreshRes = await fetch(`${API_URL}/api/auth/token/refresh`, {
+    const refreshRes = await apiFetchRaw("/api/auth/token/refresh", {
       method: "POST",
       credentials: "include",
     });
     if (refreshRes.ok) {
       // Retry original request with new cookie
-      const retry = await fetch(`${API_URL}${path}`, {
-        ...options,
-        credentials: "include",
-        headers: {
-          "Content-Type": "application/json",
-          ...(options.headers as Record<string, string> | undefined),
-        },
-      });
+      const retry = await apiFetchRaw(path, options);
       if (!retry.ok) {
         const err = await retry.json().catch(() => ({ detail: retry.statusText }));
         throw new Error(err.detail || "API error");

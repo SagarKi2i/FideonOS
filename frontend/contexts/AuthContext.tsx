@@ -1,12 +1,15 @@
 "use client";
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useState,
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { getApiUrl } from "@/lib/apiBase";
+import { clearUserCache } from "@/lib/currentUser";
 
 interface AuthUser {
   id: string;
@@ -21,6 +24,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   isAdmin: boolean;
+  refreshUser: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -28,30 +32,46 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
   isAdmin: false,
+  refreshUser: async () => {},
   signOut: async () => {},
 });
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  useEffect(() => {
-    fetch(`${API_URL}/api/auth/me`, { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setUser(data))
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false));
+  const refreshUser = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch(`${getApiUrl()}/api/auth/me`, { credentials: "include" });
+      if (res.ok) {
+        const data = (await res.json()) as AuthUser;
+        setUser(data);
+        clearUserCache();
+      } else {
+        setUser(null);
+        clearUserCache();
+      }
+    } catch {
+      setUser(null);
+      clearUserCache();
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    void refreshUser();
+  }, [refreshUser]);
+
   const signOut = async () => {
-    await fetch(`${API_URL}/api/auth/logout`, {
+    await fetch(`${getApiUrl()}/api/auth/logout`, {
       method: "POST",
       credentials: "include",
     }).catch(() => {});
     setUser(null);
+    clearUserCache();
     router.push("/auth");
   };
 
@@ -61,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         isAdmin: user?.role === "admin",
+        refreshUser,
         signOut,
       }}
     >

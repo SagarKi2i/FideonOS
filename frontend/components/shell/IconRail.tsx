@@ -1,5 +1,5 @@
 'use client';
-import { clearUserCache } from '@/lib/currentUser';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { NavLink } from "@/components/NavLink";
 import {
@@ -80,12 +80,12 @@ export function IconRail() {
   const router = useRouter();
   const { isAdmin } = useUserRole();
   const { toast } = useToast();
+  const { signOut } = useAuth();
   const active = detectActiveSection(pathname);
 
   const handleLogout = async () => {
-    await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/auth/logout', { method: 'POST', credentials: 'include' }); clearUserCache();
+    await signOut();
     toast({ title: "Signed out" });
-    router.push("/auth");
   };
 
   return (

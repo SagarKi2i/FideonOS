@@ -101,9 +101,25 @@ const CUSTOM_ICONS: Record<string, LucideIcon> = {
   "layers": Layers,
 };
 
-export default function MyModels() {
+export interface MyAgentsPanelProps {
+  /** Render inside Marketplace (no page header; stay on /marketplace). */
+  embedded?: boolean;
+  onBrowseMarketplace?: () => void;
+  /** Called when activations change (e.g. remove agent) so parent can refresh badges. */
+  onAgentsChange?: () => void;
+}
+
+export function MyAgentsPanel({
+  embedded = false,
+  onBrowseMarketplace,
+  onAgentsChange,
+}: MyAgentsPanelProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const goMarketplace = () => {
+    if (onBrowseMarketplace) onBrowseMarketplace();
+    else router.push("/marketplace");
+  };
   const [models, setModels] = useState<ActivatedModel[]>([]);
   const [customAgents, setCustomAgents] = useState<CustomAgent[]>([]);
   const [installs, setInstalls] = useState<InstallationWithRuntime[]>([]);
@@ -273,6 +289,7 @@ export default function MyModels() {
       setModels((p) => p.filter((m) => m.id !== uaId));
       setDeactivatingId(null);
       toast({ title: "Agent removed" });
+      onAgentsChange?.();
     } catch (e: any) {
       toast({ title: "Error", description: e.message ?? "Failed to remove agent", variant: "destructive" });
     }
@@ -290,25 +307,33 @@ export default function MyModels() {
   }, [lastRun]);
 
   return (
-    <div className="max-w-6xl mx-auto">
-      <PageHeader
-        eyebrow="My agents"
-        title="Your activated pods"
-        description="The agents working for you. Pause one to stop it picking up new work — full audit trail in Trust."
-        icon={Box}
-        actions={
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => router.push("/request-pod")}>
-              <Wand2 className="h-4 w-4" />
-              Request a custom pod
-            </Button>
-            <Button variant="primary" size="sm" onClick={() => router.push("/marketplace")}>
-              <Sparkles className="h-4 w-4" />
-              Browse marketplace
-            </Button>
-          </div>
-        }
-      />
+    <>
+      {!embedded && (
+        <PageHeader
+          eyebrow="My agents"
+          title="Your activated pods"
+          description="The agents working for you. Pause one to stop it picking up new work — full audit trail in Trust."
+          icon={Box}
+          actions={
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => router.push("/request-pod")}>
+                <Wand2 className="h-4 w-4" />
+                Request a custom pod
+              </Button>
+              <Button variant="primary" size="sm" onClick={goMarketplace}>
+                <Sparkles className="h-4 w-4" />
+                Browse marketplace
+              </Button>
+            </div>
+          }
+        />
+      )}
+
+      {embedded && (
+        <p className="text-[13px] text-muted-foreground mb-5 max-w-2xl leading-relaxed">
+          Agents you&apos;ve activated from the catalog. Pause to stop new work, or open a pod to see its dashboard.
+        </p>
+      )}
 
       {loading ? (
         <div className="flex items-center justify-center py-20">
@@ -325,7 +350,7 @@ export default function MyModels() {
                 <Wand2 className="h-4 w-4" />
                 Request a custom pod
               </Button>
-              <Button variant="primary" size="lg" onClick={() => router.push("/marketplace")}>
+              <Button variant="primary" size="lg" onClick={goMarketplace}>
                 <Sparkles className="h-4 w-4" />
                 Explore Marketplace
                 <ArrowRight className="h-4 w-4" />
@@ -685,7 +710,7 @@ export default function MyModels() {
             {/* Add another agent */}
             <Card
               className="border-dashed cursor-pointer hover:border-primary/40 hover:bg-accent/30 transition-all group min-h-[240px]"
-              onClick={() => router.push("/marketplace")}
+              onClick={goMarketplace}
             >
               <div className="p-5 h-full flex flex-col items-center justify-center text-center">
                 <div className="h-12 w-12 rounded-xl bg-accent text-primary flex items-center justify-center mb-3 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
@@ -741,6 +766,14 @@ export default function MyModels() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </>
+  );
+}
+
+export default function MyModels() {
+  return (
+    <div className="max-w-6xl mx-auto">
+      <MyAgentsPanel />
     </div>
   );
 }

@@ -3,7 +3,8 @@ import { getCurrentUser } from '@/lib/currentUser';
 import { useRouter } from 'next/navigation';
 import { useEffect, useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { agentsApi } from "@/lib/api";
+import { agentsApi, ApiUnreachableError, isNetworkFetchError } from "@/lib/api";
+import { clearUserCache } from "@/lib/currentUser";
 import {
   Sparkles,
   Search,
@@ -42,8 +43,11 @@ import {
   PauseCircle,
   Code2,
   Bell,
+  Eye,
+  ClipboardList,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { StatusPill } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -67,6 +71,9 @@ import {
   getSector,
   type SectorId,
 } from "@/lib/sectors";
+import { MyAgentsPanel } from "@/views/MyModels";
+
+type MarketplaceView = "browse" | "my-agents";
 
 interface CustomAgentRow {
   id: string;
@@ -91,12 +98,14 @@ const ICONS: Record<string, LucideIcon> = {
   calculator: Calculator, bot: Bot, inbox: Inbox, filter: Filter,
   activity: Activity, "shield-alert": ShieldAlert, "rotate-ccw": RotateCcw,
   "file-check": FileCheck, repeat: Repeat, download: Download,
+  eye: Eye, "clipboard-list": ClipboardList,
 };
 
 export default function Marketplace() {
   const { toast } = useToast();
   const router = useRouter();
 
+  const [marketplaceView, setMarketplaceView] = useState<MarketplaceView>("browse");
   const [sectorId, setSectorId] = useState<SectorId>("insurance");
   const [query, setQuery] = useState("");
   const [activatedIds, setActivatedIds] = useState<Set<string>>(new Set());
@@ -140,8 +149,18 @@ export default function Marketplace() {
           .filter((k): k is string => !!k),
       ));
       setCustomAgents([]);
-    } catch (e) { console.error(e); }
-    finally { setLoading(false); }
+    } catch (e) {
+      if (e instanceof ApiUnreachableError || isNetworkFetchError(e)) {
+        clearUserCache();
+        setActivatedIds(new Set());
+        setPendingIds(new Set());
+        setKeywordToId({});
+      } else {
+        console.warn("Marketplace: could not load activations", e);
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleActivate = async (agent: CatalogAgent) => {
@@ -238,10 +257,11 @@ export default function Marketplace() {
           return (
             <button
               key={s.id}
-              onClick={() => { setSectorId(s.id as SectorId); setQuery(""); }}
+              type="button"
+              onClick={() => { setMarketplaceView("browse"); setSectorId(s.id as SectorId); setQuery(""); }}
               className={cn(
                 "inline-flex items-center gap-1.5 h-7 px-3 rounded-full border text-[12px] font-semibold transition-colors whitespace-nowrap",
-                active
+                marketplaceView === "browse" && active
                   ? "border-primary bg-primary/10 text-primary"
                   : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-border-strong",
               )}
@@ -262,14 +282,25 @@ export default function Marketplace() {
           );
         })}
 
-        {/* My Agents tab */}
+        {/* My Agents tab — in-page panel, no route change */}
         <button
-          onClick={() => router.push("/my-models")}
-          className="inline-flex items-center gap-1.5 h-7 px-3 rounded-full border border-border bg-card text-[12px] font-semibold text-muted-foreground hover:text-foreground hover:border-border-strong transition-colors whitespace-nowrap"
+          type="button"
+          onClick={() => { setMarketplaceView("my-agents"); setQuery(""); }}
+          className={cn(
+            "inline-flex items-center gap-1.5 h-7 px-3 rounded-full border text-[12px] font-semibold transition-colors whitespace-nowrap",
+            marketplaceView === "my-agents"
+              ? "border-primary bg-primary/10 text-primary"
+              : "border-border bg-card text-muted-foreground hover:text-foreground hover:border-border-strong",
+          )}
         >
           My Agents
           {activatedCount > 0 && (
-            <span className="inline-flex items-center justify-center rounded-full text-[10px] font-bold tabular-nums min-w-[16px] h-4 px-1 bg-muted text-muted-foreground">
+            <span className={cn(
+              "inline-flex items-center justify-center rounded-full text-[10px] font-bold tabular-nums min-w-[16px] h-4 px-1",
+              marketplaceView === "my-agents"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground",
+            )}>
               {activatedCount}
             </span>
           )}
@@ -277,6 +308,14 @@ export default function Marketplace() {
 
       </div>
 
+      {marketplaceView === "my-agents" ? (
+        <MyAgentsPanel
+          embedded
+          onBrowseMarketplace={() => setMarketplaceView("browse")}
+          onAgentsChange={loadActivations}
+        />
+      ) : (
+        <>
       {/* Search bar — own row, right-aligned */}
       <div className="flex justify-end mb-4">
         <div className="relative">
@@ -353,24 +392,33 @@ export default function Marketplace() {
           {/* ── Coming soon ──────────────────────────────────────── */}
           {comingAgents.length > 0 && (
             <section>
-              <div className="flex items-center gap-2 mb-3">
-                <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                <h2 className="text-[13px] font-bold text-foreground tracking-tight">Coming soon</h2>
-                <span className="text-[11px] font-semibold text-muted-foreground tabular-nums">{comingAgents.length}</span>
-                <span className="text-[12px] text-muted-foreground">·</span>
-                <span className="text-[12px] text-muted-foreground">On the roadmap. Tell us what you want first.</span>
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div className="space-y-0.5 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Clock className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <h2 className="text-[13px] font-bold text-foreground tracking-tight">Coming soon</h2>
+                    <span className="inline-flex items-center justify-center min-w-[1.375rem] h-[18px] px-1.5 rounded-full bg-muted text-[11px] font-semibold text-muted-foreground tabular-nums">
+                      {comingAgents.length}
+                    </span>
+                  </div>
+                  <p className="text-[12px] text-muted-foreground pl-[22px]">
+                    On the roadmap. Tell us what you want first.
+                  </p>
+                </div>
                 <button
+                  type="button"
                   onClick={() => { setRequestText(""); setRequestOpen(true); }}
-                  className="ml-auto text-[12px] text-primary font-semibold hover:underline flex items-center gap-1"
+                  className="shrink-0 text-[12px] text-primary font-semibold hover:underline flex items-center gap-1"
                 >
                   <Plus className="h-3 w-3" />Request an agent
                 </button>
               </div>
               <div className="grid gap-2.5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {comingAgents.map((agent) => (
+                {comingAgents.map((agent, index) => (
                   <ComingSoonCard
                     key={agent.id}
                     agent={agent}
+                    emphasizeNotify={index === 0}
                     onView={() => router.push(`/marketplace/${agent.id}`)}
                     onNotify={() => handleActivate(agent)}
                   />
@@ -378,6 +426,8 @@ export default function Marketplace() {
               </div>
             </section>
           )}
+        </>
+      )}
         </>
       )}
 
@@ -609,17 +659,20 @@ function AgentCardSkeleton() {
 
 function ComingSoonCard({
   agent,
+  emphasizeNotify,
   onView,
   onNotify,
 }: {
   agent: CatalogAgent;
+  /** First card uses a filled “Notify me” control per marketplace mock. */
+  emphasizeNotify?: boolean;
   onView: () => void;
   onNotify: () => void;
 }) {
   const Icon = ICONS[agent.icon] ?? Bot;
   return (
-    <Card className="group p-3.5 hover:border-border-strong transition-all flex flex-col gap-2">
-      <button onClick={onView} className="text-left flex-1">
+    <Card className="group p-3.5 border-border hover:border-border-strong transition-all flex flex-col gap-2">
+      <button type="button" onClick={onView} className="text-left flex-1">
         <div className="flex items-start gap-2.5">
           <div className="h-8 w-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center shrink-0">
             <Icon className="h-3.5 w-3.5" />
@@ -628,7 +681,7 @@ function ComingSoonCard({
             <h3 className="text-[12.5px] font-semibold text-foreground leading-tight truncate group-hover:text-primary transition-colors">
               {agent.name}
             </h3>
-            <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest mt-0.5 truncate">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5 truncate">
               {agent.category ?? agent.segment ?? "Agent"}
             </p>
           </div>
@@ -637,15 +690,22 @@ function ComingSoonCard({
           {agent.oneLiner ?? agent.description}
         </p>
       </button>
-      <div className="flex items-center justify-between pt-0.5">
-        <span className="inline-flex items-center gap-1 text-[10px] font-bold uppercase tracking-widest text-muted-foreground bg-muted px-2 py-0.5 rounded">
+      <div className="flex items-center justify-between pt-0.5 gap-2">
+        <StatusPill tone="warning" size="sm">
           Coming soon
-        </span>
+        </StatusPill>
         <button
+          type="button"
           onClick={onNotify}
-          className="text-[11.5px] text-muted-foreground hover:text-foreground font-medium transition-colors flex items-center gap-1"
+          className={cn(
+            "shrink-0 flex items-center gap-1 text-[11.5px] font-medium transition-colors",
+            emphasizeNotify
+              ? "rounded-md bg-muted px-2.5 py-1 text-foreground hover:bg-muted/80"
+              : "text-muted-foreground hover:text-foreground",
+          )}
         >
-          <Bell className="h-3 w-3" />Notify me
+          <Bell className="h-3 w-3" />
+          Notify me
         </button>
       </div>
     </Card>

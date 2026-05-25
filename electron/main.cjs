@@ -1,10 +1,54 @@
 const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
-const { execFile, exec } = require('child_process');
+const { execFile, exec, spawn } = require('child_process');
 const fs = require('fs');
 
 let mainWindow;
 const isDev = process.env.NODE_ENV === 'development';
+
+// ── Embedded pod runtime ──────────────────────────────────────────────────────
+// __dirname = electron/  →  runtime scripts live in electron/runtime/
+const ELECTRON_DIR = __dirname;
+const REPO_ROOT = path.join(ELECTRON_DIR, '..');
+const RUNTIME_DIR = path.join(ELECTRON_DIR, 'runtime');
+const RUNTIME_PORT = parseInt(process.env.FIDEON_RUNTIME_PORT || '8765', 10);
+const RUNTIME_URL = `http://127.0.0.1:${RUNTIME_PORT}`;
+let runtimeProc = null;
+let runtimeError = null;
+
+// Map pod slug → local source dir (process-exec mode, no Docker needed on desktop).
+const POD_LOCAL_DIRS = {
+  'document-retrieval': path.join(REPO_ROOT, 'pods/document-retrieval-pod'),
+  'placeholder-pod':    path.join(REPO_ROOT, 'pods/placeholder-pod'),
+};
+
+function startRuntime() {
+  runtimeError = null;
+  // Prefer system `node`; fall back to Electron's own bundled Node so this
+  // works even when `node` isn't on PATH (ELECTRON_RUN_AS_NODE flag).
+  const useElectronNode = !process.env.FIDEON_SYSTEM_NODE;
+  const cmd = useElectronNode ? process.execPath : 'node';
+  const env = {
+    ...process.env,
+    RUNTIME_EXEC: 'process',
+    HEADLESS: 'false',
+    SLOWMO: process.env.SLOWMO || '700',
+    PORT: String(RUNTIME_PORT),
+    POD_PORT_BASE: '9300',
+    POD_LOCAL_DIRS: JSON.stringify(POD_LOCAL_DIRS),
+  };
+  if (useElectronNode) env.ELECTRON_RUN_AS_NODE = '1';
+  runtimeProc = spawn(cmd, [path.join(RUNTIME_DIR, 'server.js')], {
+    cwd: REPO_ROOT, env, stdio: 'inherit',
+  });
+  runtimeProc.on('error', (err) => { runtimeError = err.message; console.error('[fideon-runtime] spawn error:', err); });
+  runtimeProc.on('exit', (code) => { if (code) runtimeError = `runtime exited (${code})`; console.log(`[fideon-runtime] exited (${code})`); });
+}
+
+async function runtimeFetch(pathSeg, opts) {
+  const res = await fetch(`${RUNTIME_URL}${pathSeg}`, opts);
+  return res.json();
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -20,25 +64,32 @@ function createWindow() {
   // Dev: Next.js dev server on port 3000
   // Prod: Next.js standalone server (start with: node .next/standalone/server.js)
   const startURL = isDev
-    ? 'http://localhost:3000/electron-playground'
-    : 'http://localhost:3000/electron-playground'; // prod: start next server before app.
+    ? 'http://localhost:3000/runtime-shell'
+    : 'http://localhost:3000/runtime-shell'; // prod: start next server before app.
 
   mainWindow.loadURL(startURL);
 
-  if (isDev) {
+  // DevTools is opt-in (set FIDEON_DEVTOOLS=1) instead of auto-opening every launch.
+  if (process.env.FIDEON_DEVTOOLS === '1') {
     mainWindow.webContents.openDevTools();
   }
 
   mainWindow.on('closed', () => (mainWindow = null));
 }
 
-app.on('ready', createWindow);
+app.on('ready', () => {
+  startRuntime();
+  createWindow();
+});
 
 app.on('window-all-closed', () => {
+  if (runtimeProc) runtimeProc.kill();
   if (process.platform !== 'darwin') {
     app.quit();
   }
 });
+
+app.on('before-quit', () => { if (runtimeProc) runtimeProc.kill(); });
 
 app.on('activate', () => {
   if (mainWindow === null) {
@@ -167,13 +218,14 @@ ipcMain.handle('service:install', async () => {
   const platform = process.platform;
   try {
     if (platform === 'win32') {
-      const winswExe = path.join(SERVICE_DIR, 'windows', 'winsw.exe');
+      const winswExe = path.join(SERVICE_DIR, 'windows', 'fideon-backend.exe');
       if (!fs.existsSync(winswExe)) {
-        return { ok: false, output: 'winsw.exe not found. Download WinSW v3 and place it in electron/service/windows/.' };
+        return { ok: false, output: 'fideon-backend.exe not found. Run scripts/install-winsw.ps1 in electron/service/windows/.' };
       }
-      const stop = await runCommand(winswExe, ['stop']);
-      const uninstall = await runCommand(winswExe, ['uninstall']);
-      return runCommand(winswExe, ['install']);
+      await runCommand(winswExe, ['stop']);
+      await runCommand(winswExe, ['uninstall']);
+      await runCommand(winswExe, ['install']);
+      return runCommand(winswExe, ['start']);
     }
 
     if (platform === 'darwin') {
@@ -207,7 +259,7 @@ ipcMain.handle('service:uninstall', async () => {
   const platform = process.platform;
   try {
     if (platform === 'win32') {
-      const winswExe = path.join(SERVICE_DIR, 'windows', 'winsw.exe');
+      const winswExe = path.join(SERVICE_DIR, 'windows', 'fideon-backend.exe');
       await runCommand(winswExe, ['stop']);
       return runCommand(winswExe, ['uninstall']);
     }
@@ -241,8 +293,8 @@ ipcMain.handle('service:status', async () => {
   const platform = process.platform;
   try {
     if (platform === 'win32') {
-      const winswExe = path.join(SERVICE_DIR, 'windows', 'winsw.exe');
-      if (!fs.existsSync(winswExe)) return { installed: false, running: false, output: 'winsw.exe not found' };
+      const winswExe = path.join(SERVICE_DIR, 'windows', 'fideon-backend.exe');
+      if (!fs.existsSync(winswExe)) return { installed: false, running: false, output: 'fideon-backend.exe not found' };
       const result = await runCommand(winswExe, ['status']);
       const running = result.output.toLowerCase().includes('started');
       return { installed: result.ok, running, output: result.output };
@@ -276,5 +328,45 @@ ipcMain.handle('network:check-status', async () => {
     return { online: response.ok };
   } catch {
     return { online: false };
+  }
+});
+
+// ── Pod runtime IPC ───────────────────────────────────────────────────────────
+ipcMain.handle('runtime:status', async () => {
+  try { return { ok: true, ...(await runtimeFetch('/health')) }; }
+  catch (e) {
+    // Self-heal: restart the runtime process if it died.
+    if (!runtimeProc || runtimeProc.exitCode !== null || runtimeProc.killed) startRuntime();
+    return { ok: false, error: runtimeError || e.message };
+  }
+});
+
+ipcMain.handle('runtime:canRun', (_e, slug) => ({ canRun: !!POD_LOCAL_DIRS[slug], slug }));
+
+// Sync the pod onto the local runtime (if needed) then call its tool.
+ipcMain.handle('runtime:run', async (_e, { slug, toolName, config, input }) => {
+  try {
+    if (!POD_LOCAL_DIRS[slug]) {
+      return { ok: false, error: `Pod "${slug}" has no local source on this device yet.` };
+    }
+    const list = await runtimeFetch('/pods').catch(() => ({ pods: [] }));
+    const synced = (list.pods || []).some((p) => p.slug === slug);
+    if (!synced) {
+      await runtimeFetch('/pods', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, toolName, image: slug, config: config || {} }),
+      });
+    }
+    const res = await runtimeFetch('/mcp', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: toolName, arguments: input || {} } }),
+    });
+    if (res.error) return { ok: false, error: res.error.message };
+    const output = res.result?.structuredContent ?? res.result ?? {};
+    return { ok: true, output, confidence: Number(output.confidence ?? 0.9) };
+  } catch (e) {
+    return { ok: false, error: e.message };
   }
 });

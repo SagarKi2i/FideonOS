@@ -56,4 +56,11 @@ contextBridge.exposeInMainWorld('electron', {
     uninstall: () => ipcRenderer.invoke('service:uninstall'),
     status:    () => ipcRenderer.invoke('service:status'),
   },
+
+  // Embedded pod runtime — run installed pods locally on this device.
+  runtime: {
+    status: () => ipcRenderer.invoke('runtime:status'),
+    canRun: (slug) => ipcRenderer.invoke('runtime:canRun', slug),
+    run: (args) => ipcRenderer.invoke('runtime:run', args),
+  },
 });

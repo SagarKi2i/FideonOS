@@ -1,5 +1,8 @@
 import type { NextConfig } from "next";
 
+const backendUrl =
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") || "http://localhost:8000";
+
 const nextConfig: NextConfig = {
   // Emit a self-contained server bundle into .next/standalone so the Docker
   // runner stage (frontend/docker/Dockerfile) can run `node server.js`.
@@ -7,6 +10,11 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ["pptxgenjs", "xlsx", "jspdf", "html2canvas"],
   images: { unoptimized: true },
   trailingSlash: false,
+  async rewrites() {
+    return [
+      { source: "/api/:path*", destination: `${backendUrl}/api/:path*` },
+    ];
+  },
   async redirects() {
     return [
       { source: '/inbox',           destination: '/approvals',             permanent: true },

@@ -24,9 +24,9 @@
   <description>Fideon OS FastAPI backend — provides REST API for the desktop app.</description>
 
   <!-- Executable — adjust the python path to match your install -->
-  <executable>C:\Users\HP\AppData\Local\Programs\FideonOS\venv\Scripts\python.exe</executable>
+  <executable>C:\Users\HP\Desktop\Shubham\FideonOS\backend\venv\Scripts\python.exe</executable>
   <arguments>-m uvicorn main:app --host 127.0.0.1 --port 8000 --workers 1</arguments>
-  <workingdirectory>C:\Users\HP\AppData\Local\Programs\FideonOS\backend</workingdirectory>
+  <workingdirectory>C:\Users\HP\Desktop\Shubham\FideonOS\backend</workingdirectory>
 
   <!-- Environment -->
   <env name="ENVIRONMENT" value="production"/>

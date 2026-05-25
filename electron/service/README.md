@@ -9,21 +9,30 @@ restarts automatically after a crash.
 
 **File:** `windows/fideon-backend.xml`
 
-1. Download [WinSW v3](https://github.com/winsw/winsw/releases) — rename to `winsw.exe`,
-   place it alongside `fideon-backend.xml`.
-2. Open **elevated PowerShell** in `electron/service/windows/`:
+1. Download WinSW (paired with `fideon-backend.xml`):
 
 ```powershell
-.\winsw.exe install
-.\winsw.exe start
-.\winsw.exe status      # should show "Started"
+cd electron/service/windows
+powershell -ExecutionPolicy Bypass -File install-winsw.ps1
+```
+
+   This saves `fideon-backend.exe` next to `fideon-backend.xml` (same basename required by WinSW).
+
+2. Edit paths in `fideon-backend.xml`, then open **elevated PowerShell** in this folder:
+
+```powershell
+.\fideon-backend.exe install
+.\fideon-backend.exe start
+.\fideon-backend.exe status      # should show "Started"
 Get-Service fideon-backend
 ```
 
+Automated test (elevated): `powershell -ExecutionPolicy Bypass -File test-service.ps1`
+
 Uninstall:
 ```powershell
-.\winsw.exe stop
-.\winsw.exe uninstall
+.\fideon-backend.exe stop
+.\fideon-backend.exe uninstall
 ```
 
 Crash recovery (FNF-428): restarts immediately on first crash, after 5 s on the
