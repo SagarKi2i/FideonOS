@@ -1,0 +1,15 @@
+{
+  "_comment": "Tunable policy values — safe to commit and edit without touching secrets (.env). A value also set in .env overrides the one here.",
+
+  "jwt_access_expiry_minutes": 15,
+  "jwt_refresh_expiry_days": 7,
+  "invite_expiry_hours": 48,
+  "otp_expiry_minutes": 10,
+  "password_reset_expiry_minutes": 15,
+
+  "otp_resend_limit": 3,
+  "otp_rate_window_requests": 5,
+  "otp_rate_window_minutes": 60,
+
+  "geo_anomaly_threshold_minutes": 60
+}

@@ -1,3 +1,5 @@
+import base64
+import binascii
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from uuid import uuid4
@@ -25,17 +27,35 @@ def _resolve_key_path(path_str: str) -> Path:
     return p
 
 
+def _decode_b64_key(value: str) -> str:
+    """Decode a base64-encoded PEM. Raises on malformed input so a bad secret
+    fails loudly at startup rather than producing cryptic signing errors."""
+    try:
+        return base64.b64decode(value, validate=True).decode("utf-8")
+    except (binascii.Error, UnicodeDecodeError) as exc:
+        raise RuntimeError(
+            "JWT key base64 env var is set but could not be decoded; "
+            "ensure it is valid base64 of a PEM file."
+        ) from exc
+
+
 def _load_private_key() -> str:
     global _private_key
     if _private_key is None:
-        _private_key = _resolve_key_path(settings.jwt_private_key_path).read_text()
+        if settings.jwt_private_key_b64:
+            _private_key = _decode_b64_key(settings.jwt_private_key_b64)
+        else:
+            _private_key = _resolve_key_path(settings.jwt_private_key_path).read_text()
     return _private_key
 
 
 def _load_public_key() -> str:
     global _public_key
     if _public_key is None:
-        _public_key = _resolve_key_path(settings.jwt_public_key_path).read_text()
+        if settings.jwt_public_key_b64:
+            _public_key = _decode_b64_key(settings.jwt_public_key_b64)
+        else:
+            _public_key = _resolve_key_path(settings.jwt_public_key_path).read_text()
     return _public_key
 
 
