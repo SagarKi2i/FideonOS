@@ -127,7 +127,7 @@ jobs:
       - name: Deploy container (Azure CLI — no Kudu)
         uses: azure/cli@v2
         with:
-          azcliversion: agentazcliversion
+          azcliversion: 2.86.0
           inlineScript: |
             set -e
             az account set --subscription "${{ vars.AZURE_SUBSCRIPTION_ID }}"
@@ -163,6 +163,7 @@ jobs:
           RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
           VALKEY_URL: ${{ secrets.VALKEY_URL }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+          OTP_BYPASS_EMAILS: ${{ secrets.OTP_BYPASS_EMAILS }}
           # ── Frontend (NEXT_PUBLIC_* baked at build; re-applied for SSR) ───
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
@@ -264,6 +265,9 @@ jobs:
           if [ -n "$VALKEY_URL" ]; then
             SETTINGS+=("VALKEY_URL=${VALKEY_URL}")
           fi
+          if [ -n "$OTP_BYPASS_EMAILS" ]; then
+            SETTINGS+=("OTP_BYPASS_EMAILS=${OTP_BYPASS_EMAILS}")
+          fi
           # RS256 keys: config.py reads the *_B64 vars in priority over the on-disk PEM paths.
           # Required for login / JWT issuance unless the PEMs are baked into the image (backend/keys/).
           if [ -n "$JWT_PRIVATE_KEY_B64" ] && [ -n "$JWT_PUBLIC_KEY_B64" ]; then
@@ -302,11 +306,25 @@ jobs:
             ATTEMPTS=18
             SLEEP_SEC=15
             CURL_MAX=25
+            START_DELAY=20
           else
-            ATTEMPTS=8
-            SLEEP_SEC=10
-            CURL_MAX=15
+            # Frontend: App Service still has to pull the new image and cold-start the
+            # Next standalone server on the first deploy of a SHA. The old 8x10s (~80s)
+            # window closed before the container was reachable and reported false 000s,
+            # so give it a grace period plus a wider window.
+            ATTEMPTS=12
+            SLEEP_SEC=15
+            CURL_MAX=20
+            START_DELAY=20
           fi
+
+          # Don't probe the instant `az webapp restart` returns — the container is not
+          # up yet. A 000 during this gap is expected, not a failure.
+          if [ "$START_DELAY" -gt 0 ]; then
+            echo "Waiting ${START_DELAY}s for container pull/start before first probe..."
+            sleep "$START_DELAY"
+          fi
+
           for i in $(seq 1 "$ATTEMPTS"); do
             if curl -sfSL --max-time "$CURL_MAX" "$CURL_URL" > /dev/null 2>&1; then
               # Build this string in-shell from TARGET_APP only so GitHub does not mask the URL

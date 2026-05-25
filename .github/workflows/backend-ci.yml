@@ -4,6 +4,7 @@
 # Note: this comment is a no-op change to trigger a clean CI rerun.
 # Note: no-op change to trigger CI rerun (staging).
 # Note: no-op change to trigger CI rerun (demo).
+# Note: no-op change to force backend redeploy — OTP_BYPASS_EMAILS wired in deploy-app-service.yml.
 
 name: Backend CI/CD
 
