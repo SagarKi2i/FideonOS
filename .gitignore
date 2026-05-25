@@ -39,7 +39,7 @@ backend/venv/
 dist/
 build/
 release/
-electron-dist/
+electron/dist/
 *.exe
 *.dmg
 *.AppImage
