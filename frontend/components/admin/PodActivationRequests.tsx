@@ -1,24 +1,24 @@
 'use client';
-import { getCurrentUser } from '@/lib/currentUser';
 import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { adminApi } from "@/lib/api";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Clock, Package, User } from "lucide-react";
+import { CheckCircle2, XCircle, Clock, Package } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 
 interface ActivationRequest {
   id: string;
   user_id: string;
-  model_id: string;
+  agent_id: string;
   model_name: string;
-  domain: string;
   status: string;
-  requested_at: string;
+  created_at: string;
   reviewed_at: string | null;
   rejection_reason: string | null;
+  agents: { keyword: string; name: string } | null;
+  users: { email: string } | null;
 }
 
 export function PodActivationRequests() {
@@ -35,12 +35,7 @@ export function PodActivationRequests() {
 
   const loadRequests = async () => {
     try {
-      const { data, error } = await supabase
-        .from("pod_activation_requests")
-        .select("*")
-        .order("requested_at", { ascending: false });
-
-      if (error) throw error;
+      const data = await adminApi.agentRequests() as ActivationRequest[];
       setRequests(data || []);
     } catch (error) {
       console.error("Error loading requests:", error);
@@ -52,52 +47,15 @@ export function PodActivationRequests() {
   const handleApprove = async (request: ActivationRequest) => {
     setProcessingId(request.id);
     try {
-      const user = await getCurrentUser();
-      if (!user) return;
-
-      // Insert into activated_models
-      const { error: insertError } = await supabase
-        .from("activated_models")
-        .insert([{
-          user_id: request.user_id,
-          model_id: request.model_id,
-          model_name: request.model_name,
-          domain: request.domain as "banking" | "healthcare" | "insurance" | "legal" | "travel",
-        }]);
-
-      if (insertError) {
-        if (insertError.code === "23505") {
-          // Already activated, just update request status
-        } else {
-          throw insertError;
-        }
-      }
-
-      // Update request status
-      const { error: updateError } = await supabase
-        .from("pod_activation_requests")
-        .update({
-          status: "approved",
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user.id,
-        })
-        .eq("id", request.id);
-
-      if (updateError) throw updateError;
-
+      await adminApi.updateAgentRequest(request.id, { status: "approved" });
       toast({
         title: "Request Approved",
         description: `${request.model_name} has been activated for the user`,
       });
-
       loadRequests();
     } catch (error) {
       console.error("Error approving request:", error);
-      toast({
-        title: "Error",
-        description: "Failed to approve request",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to approve request", variant: "destructive" });
     } finally {
       setProcessingId(null);
     }
@@ -106,42 +64,26 @@ export function PodActivationRequests() {
   const handleReject = async (request: ActivationRequest) => {
     setProcessingId(request.id);
     try {
-      const user = await getCurrentUser();
-      if (!user) return;
-
-      const { error } = await supabase
-        .from("pod_activation_requests")
-        .update({
-          status: "rejected",
-          reviewed_at: new Date().toISOString(),
-          reviewed_by: user.id,
-          rejection_reason: rejectionReason[request.id] || null,
-        })
-        .eq("id", request.id);
-
-      if (error) throw error;
-
+      await adminApi.updateAgentRequest(request.id, {
+        status: "rejected",
+        rejection_reason: rejectionReason[request.id] || null,
+      });
       toast({
         title: "Request Rejected",
         description: `Activation request for ${request.model_name} has been rejected`,
       });
-
       setShowRejectInput(null);
       loadRequests();
     } catch (error) {
       console.error("Error rejecting request:", error);
-      toast({
-        title: "Error",
-        description: "Failed to reject request",
-        variant: "destructive",
-      });
+      toast({ title: "Error", description: "Failed to reject request", variant: "destructive" });
     } finally {
       setProcessingId(null);
     }
   };
 
-  const pendingRequests = requests.filter(r => r.status === "pending");
-  const processedRequests = requests.filter(r => r.status !== "pending");
+  const pendingRequests = requests.filter(r => r.status === "submitted");
+  const processedRequests = requests.filter(r => r.status !== "submitted");
 
   if (loading) {
     return (
@@ -191,8 +133,8 @@ export function PodActivationRequests() {
                       </div>
                       <div>
                         <p className="font-medium text-sm">{request.model_name}</p>
-                        <p className="text-xs text-muted-foreground capitalize">
-                          {request.domain} • Requested {new Date(request.requested_at).toLocaleDateString()}
+                        <p className="text-xs text-muted-foreground">
+                          {request.users?.email ?? request.user_id} • Requested {new Date(request.created_at).toLocaleDateString()}
                         </p>
                       </div>
                     </div>
@@ -279,7 +221,8 @@ export function PodActivationRequests() {
                     <div>
                       <p className="text-sm font-medium">{request.model_name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {request.reviewed_at && new Date(request.reviewed_at).toLocaleDateString()}
+                        {request.users?.email ?? request.user_id}
+                        {request.reviewed_at && ` • ${new Date(request.reviewed_at).toLocaleDateString()}`}
                       </p>
                     </div>
                   </div>

@@ -15,8 +15,8 @@ export default function OtpPage() {
   const [email, setEmail] = useState<string | null>(null);
   const [isStepUp, setIsStepUp] = useState(false);
   const { toast } = useToast();
+  const { refresh } = useAuth();
   const router = useRouter();
-  const { refreshUser } = useAuth();
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -54,7 +54,9 @@ export default function OtpPage() {
 
       sessionStorage.removeItem("otp_email");
       sessionStorage.removeItem("otp_step_up");
-      await refreshUser();
+      // Refresh the in-memory user BEFORE navigating — otherwise the (app) layout
+      // guard sees the stale null user and bounces straight back to /auth.
+      await refresh();
       router.replace("/today");
     } catch (error: any) {
       toast({ title: "Verification failed", description: error.message, variant: "destructive" });

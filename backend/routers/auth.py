@@ -224,9 +224,9 @@ class LoginBody(BaseModel):
 async def login(body: LoginBody, request: Request, response: Response):
     ip = request.client.host if request.client else "unknown"
     email = body.email.strip().lower()  # normalize BEFORE rate-limit key derivation
-    _rate_check(ratelimit_service.check_rate_limit(ratelimit_service.ip_key(ip, "login"), 10, 60))
-    _rate_check(ratelimit_service.check_rate_limit(ratelimit_service.ip_key(ip, "login_hr"), 5, 3600))
-    _rate_check(ratelimit_service.check_rate_limit(ratelimit_service.email_key(email, "login"), 5, 3600))
+    _rate_check(ratelimit_service.check_rate_limit(ratelimit_service.ip_key(ip, "login"), settings.login_rate_per_minute, 60))
+    _rate_check(ratelimit_service.check_rate_limit(ratelimit_service.ip_key(ip, "login_hr"), settings.login_rate_ip_per_hour, 3600))
+    _rate_check(ratelimit_service.check_rate_limit(ratelimit_service.email_key(email, "login"), settings.login_rate_email_per_hour, 3600))
 
     sb = get_supabase()
 

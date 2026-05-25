@@ -136,7 +136,7 @@ async def list_agent_requests():
     sb = get_supabase()
     result = (
         sb.table("agent_access_requests")
-        .select("*, agents(keyword, name), users(email)")
+        .select("*, agents(keyword, name), users!user_id(email)")
         .order("created_at", desc=True)
         .execute()
     )

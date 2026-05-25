@@ -64,6 +64,14 @@ class Settings(BaseSettings):
     otp_rate_window_requests: int = 5
     otp_rate_window_minutes: int = 60
 
+    # Login rate limits (per IP and per email). Three independent windows guard
+    # /auth/login. Bump these in dev so active testing doesn't trip the per-hour
+    # caps; keep them tight in production. NB: separate from account lockout
+    # (5 wrong passwords → 30-min lock), which is unaffected by these.
+    login_rate_per_minute: int = 10          # per IP, 60s window
+    login_rate_ip_per_hour: int = 5          # per IP, 3600s window
+    login_rate_email_per_hour: int = 5       # per email, 3600s window
+
     # OTP bypass — comma-separated emails that skip the OTP step on login.
     # TESTING ONLY (e.g. a seeded admin on a fake email). Leave empty in production.
     # All other users still go through the normal OTP flow.

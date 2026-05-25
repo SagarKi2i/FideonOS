@@ -24,7 +24,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   isAdmin: boolean;
-  refreshUser: () => Promise<void>;
+  refresh: () => Promise<AuthUser | null>;
   signOut: () => Promise<void>;
 }
 
@@ -32,7 +32,7 @@ const AuthContext = createContext<AuthContextValue>({
   user: null,
   loading: true,
   isAdmin: false,
-  refreshUser: async () => {},
+  refresh: async () => null,
   signOut: async () => {},
 });
 
@@ -41,7 +41,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  const refreshUser = useCallback(async () => {
+  // Re-fetchable so post-login flows (OTP verify, OTP-bypass login) can refresh
+  // the in-memory user without a full page reload. Client-side navigation does
+  // NOT remount this provider, so without an explicit refresh the user stays
+  // null after login and the (app) layout guard bounces back to /auth.
+  const refresh = useCallback(async (): Promise<AuthUser | null> => {
     setLoading(true);
     try {
       const res = await fetch(`${getApiUrl()}/api/auth/me`, { credentials: "include" });
@@ -49,21 +53,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = (await res.json()) as AuthUser;
         setUser(data);
         clearUserCache();
-      } else {
-        setUser(null);
-        clearUserCache();
+        return data;
       }
+      setUser(null);
+      clearUserCache();
+      return null;
     } catch {
       setUser(null);
       clearUserCache();
+      return null;
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    void refreshUser();
-  }, [refreshUser]);
+    void refresh();
+  }, [refresh]);
 
   const signOut = async () => {
     await fetch(`${getApiUrl()}/api/auth/logout`, {
@@ -81,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         loading,
         isAdmin: user?.role === "admin",
-        refreshUser,
+        refresh,
         signOut,
       }}
     >

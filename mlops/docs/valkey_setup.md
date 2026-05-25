@@ -189,13 +189,17 @@ python3 -c "import valkey; valkey.from_url('valkey://:<VALKEY_PASSWORD>@<host>:<
 | App Service | `fideon-dev-backend` |
 | `VALKEY_URL` (dev) | `valkey://:<VALKEY_PASSWORD>@52.249.220.12:6379` |
 | Network test | ✅ `network OK` from App Service |
-| `valkey` dep on app | ⏳ pending backend redeploy |
-| `VALKEY_URL` secret set | ⏳ pending |
+| `valkey` dep on app | ✅ deployed — backend reads/writes Valkey (rate-limit keys observed live) |
+| `VALKEY_URL` secret set | ✅ set; injected into `fideon-dev-backend` app settings |
+
+> Verified 2026-05-25: live rate-limit keys (`ip:*:login_hr`, `email:*:login`)
+> were present in the `supabase-dev-valkey` container, confirming the dev backend
+> is using Valkey (not the in-memory fallback).
 
 ### Remaining for dev
-- [ ] Set `VALKEY_URL` dev GitHub secret
-- [ ] Redeploy `fideon-dev-backend` (installs `valkey`, injects secret)
-- [ ] Re-run §5 python check, expect `OK`
+- [x] Set `VALKEY_URL` dev GitHub secret
+- [x] Redeploy `fideon-dev-backend` (installs `valkey`, injects secret)
+- [x] Re-run §5 python check, expect `OK`
 
 ### Remaining for staging/prod
 - [ ] Stand up a Valkey container per env (distinct host port, e.g. staging `6380`)

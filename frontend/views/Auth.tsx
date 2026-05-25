@@ -2,7 +2,6 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState } from "react";
 import { authApi } from "@/lib/api";
-import { getApiUrl } from "@/lib/apiBase";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,19 +23,19 @@ export default function Auth() {
   const [mode, setMode] = useState<"login" | "forgot">("login");
   const [forgotSent, setForgotSent] = useState(false);
   const { toast } = useToast();
+  const { refresh } = useAuth();
   const router = useRouter();
-  const { refreshUser } = useAuth();
   const searchParams = useSearchParams();
   const redirectTo = safeRedirectPath(searchParams.get('redirectTo'));
 
-  // Check if already authenticated
+  // Check if already authenticated. Use the shared refresh() so the context's
+  // user is populated before we redirect — redirecting on a bare /auth/me 200
+  // while the provider's user is still null causes a /auth ⇄ /today bounce loop.
   useEffect(() => {
-    fetch(`${getApiUrl()}/api/auth/me`, { credentials: "include" })
-      .then((r) => {
-        if (r.ok) router.replace(redirectTo ?? '/today');
-      })
-      .catch(() => {});
-  }, [router, redirectTo]);
+    refresh().then((u) => {
+      if (u) router.replace(redirectTo ?? '/today');
+    });
+  }, [refresh, router, redirectTo]);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,7 +45,7 @@ export default function Auth() {
       // OTP-bypassed accounts (e.g. the seeded test admin) are already signed in —
       // skip the OTP page. Everyone else gets a code and goes to /auth/otp.
       if (res?.logged_in) {
-        await refreshUser();
+        await refresh();
         router.push(redirectTo ?? "/today");
         return;
       }
