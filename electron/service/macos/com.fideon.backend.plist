@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+  "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  FNF-426 — macOS launchd plist
+  Runs the Fideon FastAPI backend as a launchd user agent (starts on login).
+
+  Install (runs as current user, no sudo needed):
+    cp com.fideon.backend.plist ~/Library/LaunchAgents/
+    launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.fideon.backend.plist
+
+  Start / stop manually:
+    launchctl kickstart gui/$(id -u)/com.fideon.backend
+    launchctl kill SIGTERM gui/$(id -u)/com.fideon.backend
+
+  Check status:
+    launchctl print gui/$(id -u)/com.fideon.backend
+
+  Uninstall:
+    launchctl bootout gui/$(id -u)/com.fideon.backend
+    rm ~/Library/LaunchAgents/com.fideon.backend.plist
+
+  Note: For system-wide (all users), copy to /Library/LaunchDaemons/ and use
+  sudo launchctl bootstrap system ... (requires root).
+-->
+<plist version="1.0">
+<dict>
+  <!-- Identity -->
+  <key>Label</key>
+  <string>com.fideon.backend</string>
+
+  <!-- Executable + args -->
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Applications/FideonOS.app/Contents/Resources/venv/bin/python</string>
+    <string>-m</string>
+    <string>uvicorn</string>
+    <string>main:app</string>
+    <string>--host</string>
+    <string>127.0.0.1</string>
+    <string>--port</string>
+    <string>8000</string>
+    <string>--workers</string>
+    <string>1</string>
+  </array>
+
+  <!-- Working directory -->
+  <key>WorkingDirectory</key>
+  <string>/Applications/FideonOS.app/Contents/Resources/backend</string>
+
+  <!-- Environment -->
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>ENVIRONMENT</key>
+    <string>production</string>
+    <key>PYTHONUNBUFFERED</key>
+    <string>1</string>
+  </dict>
+
+  <!-- Auto-start on login -->
+  <key>RunAtLoad</key>
+  <true/>
+
+  <!-- FNF-428 — Crash recovery: launchd restarts the process if it exits -->
+  <key>KeepAlive</key>
+  <dict>
+    <!-- Only restart on crash (non-zero exit), not on clean stop -->
+    <key>SuccessfulExit</key>
+    <false/>
+  </dict>
+
+  <!-- Throttle restarts: wait 5s before restarting after a crash -->
+  <key>ThrottleInterval</key>
+  <integer>5</integer>
+
+  <!-- Logging -->
+  <key>StandardOutPath</key>
+  <string>/tmp/com.fideon.backend.stdout.log</string>
+  <key>StandardErrorPath</key>
+  <string>/tmp/com.fideon.backend.stderr.log</string>
+</dict>
+</plist>

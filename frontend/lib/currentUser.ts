@@ -3,7 +3,7 @@
  * Returns a minimal user object from the FastAPI /api/auth/me endpoint.
  * Cookies are sent automatically via credentials: "include".
  */
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { ApiUnreachableError, getApiUrl, isNetworkFetchError } from "@/lib/apiBase";
 
 export interface CurrentUser {
   id: string;
@@ -23,7 +23,7 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
   if (_cached && now - _cacheTime < CACHE_TTL_MS) return _cached;
 
   try {
-    const res = await fetch(`${API_URL}/api/auth/me`, { credentials: "include" });
+    const res = await fetch(`${getApiUrl()}/api/auth/me`, { credentials: "include" });
     if (!res.ok) {
       _cached = null;
       return null;
@@ -31,9 +31,10 @@ export async function getCurrentUser(): Promise<CurrentUser | null> {
     _cached = await res.json();
     _cacheTime = now;
     return _cached;
-  } catch {
+  } catch (error) {
     _cached = null;
-    return null;
+    if (error instanceof ApiUnreachableError || isNetworkFetchError(error)) return null;
+    throw error;
   }
 }
 

@@ -158,6 +158,11 @@ declare global {
       network: {
         checkStatus: () => Promise<{ online: boolean }>;
       };
+      service: {
+        install: () => Promise<{ ok: boolean; output: string }>;
+        uninstall: () => Promise<{ ok: boolean; output: string }>;
+        status: () => Promise<{ installed: boolean; running: boolean; output: string }>;
+      };
     };
   }
 }

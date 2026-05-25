@@ -8,6 +8,8 @@ import {
   ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
+import { getApiUrl } from "@/lib/apiBase";
+import { clearUserCache } from "@/lib/currentUser";
 
 interface AuthUser {
   id: string;
@@ -34,8 +36,6 @@ const AuthContext = createContext<AuthContextValue>({
   signOut: async () => {},
 });
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -46,13 +46,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // NOT remount this provider, so without an explicit refresh the user stays
   // null after login and the (app) layout guard bounces back to /auth.
   const refresh = useCallback(async (): Promise<AuthUser | null> => {
+    setLoading(true);
     try {
-      const r = await fetch(`${API_URL}/api/auth/me`, { credentials: "include" });
-      const data = r.ok ? ((await r.json()) as AuthUser) : null;
-      setUser(data);
-      return data;
+      const res = await fetch(`${getApiUrl()}/api/auth/me`, { credentials: "include" });
+      if (res.ok) {
+        const data = (await res.json()) as AuthUser;
+        setUser(data);
+        clearUserCache();
+        return data;
+      }
+      setUser(null);
+      clearUserCache();
+      return null;
     } catch {
       setUser(null);
+      clearUserCache();
       return null;
     } finally {
       setLoading(false);
@@ -60,15 +68,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    refresh();
+    void refresh();
   }, [refresh]);
 
   const signOut = async () => {
-    await fetch(`${API_URL}/api/auth/logout`, {
+    await fetch(`${getApiUrl()}/api/auth/logout`, {
       method: "POST",
       credentials: "include",
     }).catch(() => {});
     setUser(null);
+    clearUserCache();
     router.push("/auth");
   };
 

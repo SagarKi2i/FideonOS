@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import fideonLogo from "@/assets/fideon-logo.png";
-import { ArrowRight, Loader2, ShieldCheck, Plug, Lock } from "lucide-react";
+import { ArrowRight, Loader2, ShieldCheck, Plug, Lock, Eye, EyeOff } from "lucide-react";
 
 function safeRedirectPath(path: string | null): string | null {
   if (!path || !path.startsWith('/') || path.startsWith('/auth')) return null;
@@ -18,6 +18,7 @@ function safeRedirectPath(path: string | null): string | null {
 export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState<"login" | "forgot">("login");
   const [forgotSent, setForgotSent] = useState(false);
@@ -147,8 +148,26 @@ export default function Auth() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" placeholder="••••••••••••" value={password}
-                    onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
+                  <div className="relative">
+                    <Input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="••••••••••••"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      autoComplete="current-password"
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword((s) => !s)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 inline-flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
                 <div className="flex justify-end">
                   <button type="button" className="text-xs text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"

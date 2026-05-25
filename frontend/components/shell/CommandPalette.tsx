@@ -1,5 +1,6 @@
 'use client';
-import { getCurrentUser, clearUserCache } from '@/lib/currentUser';
+import { getCurrentUser } from '@/lib/currentUser';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter } from 'next/navigation';
 import * as React from "react";
 import {
@@ -20,6 +21,7 @@ import {
   Compass,
   FileText,
   GraduationCap,
+  Mail,
   LogOut,
   MessageSquare,
   Monitor,
@@ -65,7 +67,8 @@ interface NavCommand {
 
 const NAV_COMMANDS: NavCommand[] = [
   { label: "Today",          to: "/today",                     icon: Sparkles,        keywords: "home briefing morning mission control",  shortcut: "g t" },
-  { label: "Review Queue",   to: "/review-queue",              icon: ClipboardCheck,  keywords: "approvals decisions needs you inbox tasks", shortcut: "g r" },
+  { label: "Review Queue",   to: "/approvals",                 icon: ClipboardCheck,  keywords: "approvals decisions needs you inbox tasks", shortcut: "g r" },
+  { label: "Email box",      to: "/email",                     icon: Mail,            keywords: "mailbox inbound carrier submissions triage" },
   { label: "Marketplace",    to: "/marketplace",               icon: Compass,         keywords: "agents browse activate",       shortcut: "g m" },
   { label: "My Agents",      to: "/my-models",                 icon: Box,             keywords: "models pods activated",        shortcut: "g a" },
   { label: "Request a custom pod", to: "/request-pod",         icon: Wand2,           keywords: "sop workflow custom request fideon build engineer" },
@@ -83,6 +86,7 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
   const [open, setOpen] = React.useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { signOut } = useAuth();
   const [agents, setAgents] = React.useState<ActivatedAgent[]>([]);
 
   const ctx = React.useMemo<PaletteContext>(
@@ -135,9 +139,8 @@ export function CommandPaletteProvider({ children }: { children: React.ReactNode
 
   const handleSignOut = async () => {
     setOpen(false);
-    await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/auth/logout', { method: 'POST', credentials: 'include' }); clearUserCache();
+    await signOut();
     toast({ title: "Signed out" });
-    router.push("/auth");
   };
 
   return (

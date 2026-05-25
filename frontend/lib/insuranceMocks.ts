@@ -41,7 +41,7 @@ export const brokerModels: InsuranceModel[] = [
     id: "claims-fnol",
     name: "Claims & FNOL Intelligence",
     description: "Analyze FNOL documents and detect claim red flags",
-    icon: "alert-circle",
+    icon: "eye",
     category: "Claims",
     domain: "insurance",
     segment: "broker"
@@ -49,7 +49,7 @@ export const brokerModels: InsuranceModel[] = [
   {
     id: "acord-parser",
     name: "ACORD Form Understanding",
-    description: "Parse and extract data from ACORD 25, 27, 80, 85, 90, 125, 126, 140",
+    description: "Parse and extract data from ACORD 25, 27, 80, 85, 90, 125, 128, 140",
     icon: "file-text",
     category: "Document Processing",
     domain: "insurance",
@@ -77,7 +77,7 @@ export const brokerModels: InsuranceModel[] = [
     id: "compliance-checker",
     name: "Compliance Checker",
     description: "Validate state regulations and surplus lines rules",
-    icon: "clipboard-check",
+    icon: "clipboard-list",
     category: "Validation",
     domain: "insurance",
     segment: "broker"

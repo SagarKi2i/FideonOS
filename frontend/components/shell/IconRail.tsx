@@ -1,5 +1,5 @@
 'use client';
-import { clearUserCache } from '@/lib/currentUser';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import { NavLink } from "@/components/NavLink";
 import {
@@ -50,7 +50,7 @@ const RAIL_ITEMS: RailItem[] = [
   // Today owns its overview + every per-agent dashboard under the same
   // rail icon. The secondary nav lists the activated pods inside Today.
   { id: "today",       label: "Today",       icon: Sparkles,        matchPaths: ["/today", "/", "/pod/"], defaultRoute: "/today" },
-  { id: "approvals",   label: "Approvals",   icon: ClipboardCheck,  matchPaths: ["/approvals", "/review-queue"], defaultRoute: "/approvals" },
+  { id: "approvals",   label: "Approvals",   icon: ClipboardCheck,  matchPaths: ["/approvals", "/review-queue", "/email"], defaultRoute: "/approvals" },
 
   // ── Configuration (separated by a barricade) ──
   { id: "agents",      label: "Agents",      icon: Box,             matchPaths: ["/marketplace", "/my-models", "/training"], defaultRoute: "/marketplace", barricadeBefore: true },
@@ -62,7 +62,7 @@ const RAIL_ITEMS: RailItem[] = [
 
 export function detectActiveSection(pathname: string): RailSection {
   if (pathname.startsWith("/today") || pathname === "/" || pathname.startsWith("/pod/")) return "today";
-  if (pathname.startsWith("/approvals") || pathname.startsWith("/review-queue")) return "approvals";
+  if (pathname.startsWith("/approvals") || pathname.startsWith("/review-queue") || pathname.startsWith("/email")) return "approvals";
   if (pathname.startsWith("/governance") || pathname.startsWith("/inbox") ||
       pathname.startsWith("/work") || pathname.startsWith("/mailbox")) return "trust";
   if (pathname.startsWith("/automations") || pathname.startsWith("/agent-workflows") ||
@@ -80,12 +80,12 @@ export function IconRail() {
   const router = useRouter();
   const { isAdmin } = useUserRole();
   const { toast } = useToast();
+  const { signOut } = useAuth();
   const active = detectActiveSection(pathname);
 
   const handleLogout = async () => {
-    await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/auth/logout', { method: 'POST', credentials: 'include' }); clearUserCache();
+    await signOut();
     toast({ title: "Signed out" });
-    router.push("/auth");
   };
 
   return (

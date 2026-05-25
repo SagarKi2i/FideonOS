@@ -1,0 +1,64 @@
+# FNF-427 — Linux systemd unit file
+# Runs the Fideon FastAPI backend as a systemd user service (starts on login session).
+#
+# Install (user-level, no sudo needed):
+#   mkdir -p ~/.config/systemd/user
+#   cp fideon-backend.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable fideon-backend
+#   systemctl --user start fideon-backend
+#
+# Check status:
+#   systemctl --user status fideon-backend
+#   journalctl --user -u fideon-backend -f
+#
+# Stop / disable:
+#   systemctl --user stop fideon-backend
+#   systemctl --user disable fideon-backend
+#
+# For system-wide (auto-start before login, all users):
+#   Copy to /etc/systemd/system/fideon-backend.service
+#   Replace [Install] WantedBy with multi-user.target
+#   Use: sudo systemctl enable --now fideon-backend
+#   Add User=<youruser> and Group=<yourgroup> under [Service]
+
+[Unit]
+Description=Fideon OS FastAPI Backend
+Documentation=https://github.com/fideon/fideon-os
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+
+# Executable — adjust path to match your install
+ExecStart=/opt/fideon/venv/bin/python -m uvicorn main:app \
+    --host 127.0.0.1 \
+    --port 8000 \
+    --workers 1
+
+WorkingDirectory=/opt/fideon/backend
+
+# Environment
+Environment=ENVIRONMENT=production
+Environment=PYTHONUNBUFFERED=1
+
+# FNF-428 — Crash recovery
+# Restart on any non-clean exit (crash, OOM, signal)
+Restart=on-failure
+RestartSec=5s
+# Give up restarting after 3 failures within 1 minute
+StartLimitBurst=3
+StartLimitIntervalSec=60s
+
+# Graceful shutdown — give uvicorn 15s to drain
+TimeoutStopSec=15
+
+# Logging goes to journald by default (journalctl --user -u fideon-backend)
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=fideon-backend
+
+[Install]
+# Start when the user's graphical session starts
+WantedBy=default.target

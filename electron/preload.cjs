@@ -49,4 +49,18 @@ contextBridge.exposeInMainWorld('electron', {
   network: {
     checkStatus: () => ipcRenderer.invoke('network:check-status'),
   },
+
+  // FNF-425 / 426 / 427 / 428 — system service management
+  service: {
+    install:   () => ipcRenderer.invoke('service:install'),
+    uninstall: () => ipcRenderer.invoke('service:uninstall'),
+    status:    () => ipcRenderer.invoke('service:status'),
+  },
+
+  // Embedded pod runtime — run installed pods locally on this device.
+  runtime: {
+    status: () => ipcRenderer.invoke('runtime:status'),
+    canRun: (slug) => ipcRenderer.invoke('runtime:canRun', slug),
+    run: (args) => ipcRenderer.invoke('runtime:run', args),
+  },
 });

@@ -57,8 +57,6 @@ export default function OtpPage() {
       // Refresh the in-memory user BEFORE navigating — otherwise the (app) layout
       // guard sees the stale null user and bounces straight back to /auth.
       await refresh();
-      // Everyone — users and admins alike — lands on their personal dashboard.
-      // Admins reach the admin console from the in-app nav, not as a forced landing.
       router.replace("/today");
     } catch (error: any) {
       toast({ title: "Verification failed", description: error.message, variant: "destructive" });

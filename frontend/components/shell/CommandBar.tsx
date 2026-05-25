@@ -1,5 +1,5 @@
 'use client';
-import { clearUserCache } from '@/lib/currentUser';
+import { useAuth } from '@/contexts/AuthContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useEffect, useState } from "react";
@@ -33,6 +33,8 @@ const ROUTE_LABELS: Record<string, string> = {
   "request-pod": "Request a custom pod",
   schedules: "Schedules",
   mailbox: "Mailbox",
+  email: "Email box",
+  "electron-playground": "Electron Playground",
   admin: "Admin",
   devices: "Devices",
   pending: "Approvals",
@@ -63,6 +65,7 @@ export function CommandBar({ user }: { user: SupabaseUser }) {
   const router = useRouter();
   const { toast } = useToast();
   const palette = useCommandPalette();
+  const { signOut } = useAuth();
   const crumbs = buildCrumbs(pathname);
   const [systemTime, setSystemTime] = useState(() => new Date());
 
@@ -72,9 +75,8 @@ export function CommandBar({ user }: { user: SupabaseUser }) {
   }, []);
 
   const handleLogout = async () => {
-    await fetch((process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000') + '/api/auth/logout', { method: 'POST', credentials: 'include' }); clearUserCache();
+    await signOut();
     toast({ title: "Signed out" });
-    router.push("/auth");
   };
 
   const initials = user.email?.slice(0, 2).toUpperCase() || "U";

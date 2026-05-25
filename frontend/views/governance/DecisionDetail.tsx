@@ -178,7 +178,7 @@ export default function DecisionDetail() {
                         <Clock className="h-4 w-4" />
                         Awaiting human review
                       </div>
-                      <Button size="sm" variant="outline" className="w-full h-8 text-xs" onClick={() => router.push("/review-queue")}>
+                      <Button size="sm" variant="outline" className="w-full h-8 text-xs" onClick={() => router.push("/approvals")}>
                         Open Review Queue
                       </Button>
                     </div>

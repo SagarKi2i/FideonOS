@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  FNF-425 — Windows Service registration (WinSW)
+  Runs the Fideon FastAPI backend as a Windows Service.
+
+  Install:
+    1. Download WinSW v3: https://github.com/winsw/winsw/releases
+       Rename to winsw.exe and place it in this directory.
+    2. Open an elevated PowerShell in this directory:
+         .\winsw.exe install
+         .\winsw.exe start
+    3. Verify:
+         .\winsw.exe status
+         # or: Get-Service fideon-backend
+
+  Uninstall:
+    .\winsw.exe stop
+    .\winsw.exe uninstall
+-->
+<service>
+  <!-- Identity -->
+  <id>fideon-backend</id>
+  <name>Fideon Backend</name>
+  <description>Fideon OS FastAPI backend — provides REST API for the desktop app.</description>
+
+  <!-- Executable — adjust the python path to match your install -->
+  <executable>C:\Users\HP\Desktop\Shubham\FideonOS\backend\venv\Scripts\python.exe</executable>
+  <arguments>-m uvicorn main:app --host 127.0.0.1 --port 8000 --workers 1</arguments>
+  <workingdirectory>C:\Users\HP\Desktop\Shubham\FideonOS\backend</workingdirectory>
+
+  <!-- Environment -->
+  <env name="ENVIRONMENT" value="production"/>
+  <env name="PYTHONUNBUFFERED" value="1"/>
+
+  <!-- Logging — FNF-428 crash recovery logs go here -->
+  <logpath>C:\ProgramData\FideonOS\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>5</keepFiles>
+  </log>
+
+  <!-- FNF-428 — Crash recovery -->
+  <!-- Restart immediately on first crash, after 5s on second, after 30s on subsequent -->
+  <onfailure action="restart" delay="0 sec"/>
+  <onfailure action="restart" delay="5 sec"/>
+  <onfailure action="restart" delay="30 sec"/>
+  <resetfailure>1 hour</resetfailure>
+
+  <!-- Auto-start on boot (SERVICE_AUTO_START) -->
+  <startmode>Automatic</startmode>
+
+  <!-- Graceful shutdown — give uvicorn 15s to drain connections -->
+  <stoptimeout>15 sec</stoptimeout>
+</service>
