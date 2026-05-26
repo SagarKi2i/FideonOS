@@ -1,0 +1,15 @@
+{% extends "_base.html" %}
+{% block content %}
+<h2>Confirm you're human</h2>
+<p>Type the characters shown in the image below.</p>
+{% if error %}<p class="err" data-testid="mfa-error">{{ error }}</p>{% endif %}
+<img src="/captcha.png" alt="captcha" data-testid="captcha-image"
+     style="display:block;border:1px solid #d1d5db;border-radius:6px;margin:12px 0;">
+<form method="post" action="/mfa">
+  <input type="hidden" name="csrf" value="{{ csrf }}" data-testid="captcha-csrf">
+  <label for="c">Captcha</label>
+  <input id="c" name="code" type="text" maxlength="8" autocomplete="off"
+         data-testid="mfa-captcha-code" required>
+  <button type="submit" data-testid="mfa-submit">Verify</button>
+</form>
+{% endblock %}

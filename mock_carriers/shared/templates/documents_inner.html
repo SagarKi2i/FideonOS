@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head>
+  <meta charset="utf-8">
+  <style>
+    body { font: 13px -apple-system, sans-serif; margin: 14px; color: #111827; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { padding: 8px 10px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    th { background: #f9fafb; font-size: 11px; text-transform: uppercase;
+         color: #6b7280; letter-spacing: 0.04em; }
+    a { color: #1e40af; text-decoration: none; font-weight: 500; }
+  </style>
+</head><body>
+  <table data-testid="docs-table">
+    <thead><tr><th>Policy</th><th>Insured</th><th>Type</th><th>Issued</th><th></th></tr></thead>
+    <tbody data-testid="docs-tbody">
+      {% for doc in docs %}{{ row_template|replace("{{ doc.policy_number }}", doc.policy_number)|replace("{{ doc.insured_name }}", doc.insured_name)|replace("{{ doc.doc_type }}", doc.doc_type)|replace("{{ doc.issued_on }}", doc.issued_on)|replace("{{ doc.doc_id }}", doc.doc_id)|safe }}{% endfor %}
+    </tbody>
+  </table>
+</body></html>

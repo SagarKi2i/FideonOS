@@ -1,0 +1,191 @@
+<mxfile host="65bd71144e">
+    <diagram id="registry-page-current" name="1. Current State">
+        <mxGraphModel dx="1600" dy="1107" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="950" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="p1_title" value="&lt;b&gt;1. Current State&lt;/b&gt; — Registry exists structurally" style="text;html=1;strokeColor=none;fillColor=#fff8dc;fontSize=14;align=center;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="10" width="1520" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="legend" value="&lt;b&gt;Legend&lt;/b&gt;&#10;&#10;Green — code that is wired and correct&#10;Yellow — code that runs but is wrong&#10;Gray (dashed) — table exists, nothing&#10;             reads or writes it" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=10;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="1320" y="70" width="240" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="domain_prompts" value="&lt;b&gt;A. Where prompts actually live&lt;/b&gt;&#10;&#10;&lt;b&gt;backend/services/anthropic.py&lt;/b&gt; — line 16-22&#10;&#10;DOMAIN_PROMPTS: dict[str, str] = {&#10;    &quot;insurance&quot;: &quot;You are an insurance domain expert…&quot;,&#10;    &quot;healthcare&quot;: &quot;…&quot;,&#10;    &quot;banking&quot;: &quot;…&quot;,&#10;    &quot;legal&quot;: &quot;…&quot;,&#10;    &quot;travel&quot;: &quot;…&quot;,&#10;}&#10;&#10;Changing a prompt = backend deploy.&#10;Five prompts total. No versions.&#10;No hash, no audit trail." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="70" width="380" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="chat_call" value="&lt;b&gt;Chat handler resolves prompt by domain&lt;/b&gt;&#10;&#10;backend/routers/chat.py → services/anthropic.py&#10;&#10;system = DOMAIN_PROMPTS.get(model_id, DEFAULT_PROMPT)&#10;&#10;The pod (allocation row) is never read.&#10;The version table is never read." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="70" width="400" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="static_marketplace" value="&lt;b&gt;B. Catalog also hard-coded&lt;/b&gt;&#10;&#10;frontend/lib/insuranceMocks.ts&#10;&#10;brokerModels[], mgaModels[], carrierModels[]&#10;— static arrays the marketplace renders.&#10;&#10;No DB-backed catalog yet." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="860" y="70" width="440" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="tbl_versions" value="&lt;b&gt;C. model_versions&lt;/b&gt; — defined, empty&#10;&#10;Schema (migration 20260421224737):&#10;• id (uuid)&#10;• model_id (text), version (text)&#10;• prompt_template (text)&#10;• prompt_hash (text)&#10;• rules_hash (text)&#10;• metadata (jsonb)&#10;• is_active (bool)  ← single flag, insufficient&#10;• UNIQUE (model_id, version)&#10;&#10;Row count: 0.&#10;Writer endpoints: none." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e0e0e0;strokeColor=#999999;dashed=1;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="380" width="380" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="tbl_decisions" value="&lt;b&gt;D. decision_records&lt;/b&gt; — FK exists, never populated&#10;&#10;model_version_id UUID REFERENCES model_versions(id)&#10;ON DELETE SET NULL&#10;&#10;Every row written so far has model_version_id = NULL.&#10;The lineage from a decision back to the prompt that&#10;produced it is &lt;b&gt;structurally possible but operationally missing&lt;/b&gt;.&#10;&#10;Also captures:&#10;• ai_recommendation, ai_output_snapshot&#10;• key_factors, reason_summary&#10;• final_decision, final_decision_by&#10;• ai_human_agreement" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="440" y="380" width="500" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="gov_endpoint" value="&lt;b&gt;E. The buggy endpoint&lt;/b&gt;&#10;&#10;backend/routers/governance.py:54-64&#10;&#10;@router.get(&quot;/model-versions&quot;)&#10;async def get_model_versions(...):&#10;    result = (&#10;      sb.table(&quot;activated_models&quot;)  ← WRONG&#10;        .select(&quot;*&quot;)&#10;        .eq(&quot;user_id&quot;, user_id)&#10;        .order(&quot;updated_at&quot;, desc=True)&#10;        .execute()&#10;    )&#10;    return result.data&#10;&#10;Phase 0 fix: change &quot;activated_models&quot;&#10;          → &quot;model_versions&quot;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="960" y="380" width="340" height="280" as="geometry"/>
+                </mxCell>
+                <mxCell id="ui_versions" value="&lt;b&gt;F. UI consumer&lt;/b&gt;&#10;&#10;frontend/app/(app)/governance/model-versions/page.tsx&#10;&#10;Calls governanceApi.modelVersions() →&#10;currently shows allocations, not versions.&#10;&#10;After Phase 0: shows an empty list&#10;until Phase 1 seeds the table." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="690" width="420" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="other_writers" value="&lt;b&gt;G. Other writers we'll wire later&lt;/b&gt;&#10;&#10;• Training jobs (training_jobs)&#10;     — could propose a new draft version&#10;     when a job finishes (out of scope)&#10;&#10;• Workflow definitions (workflows.definition)&#10;     — candidate source for rules_hash" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;dashed=1;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="480" y="690" width="420" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="gaps_summary" value="&lt;b&gt;What today gets wrong&lt;/b&gt;&#10;&#10;• Endpoint reads the wrong table&#10;• Five prompts live in code, not data&#10;• Marketplace is a static array&#10;• decision_records lineage FK is NULL&#10;• &quot;is_active&quot; bool can't express canary&#10;  or deprecated states" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8dc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="920" y="690" width="380" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="ec1" value="&lt;b&gt;1.&lt;/b&gt; reads dict every request" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="chat_call" target="domain_prompts" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ec2" value="&lt;b&gt;X.&lt;/b&gt; never read" style="endArrow=block;html=1;strokeWidth=2;dashed=1;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=2;strokeColor=#b85450;fontColor=#b85450;" parent="1" source="chat_call" target="tbl_versions" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ec3" value="&lt;b&gt;X.&lt;/b&gt; FK never populated" style="endArrow=block;html=1;strokeWidth=2;dashed=1;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=2;strokeColor=#b85450;fontColor=#b85450;" parent="1" source="tbl_decisions" target="tbl_versions" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ec4" value="&lt;b&gt;⚠&lt;/b&gt; wrong table" style="endArrow=block;html=1;strokeWidth=3;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;strokeColor=#FF0000;fontColor=#000000;" parent="1" source="gov_endpoint" target="tbl_decisions" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ec5" value="" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="ui_versions" target="gov_endpoint" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="footer" value="See Page 2 for the target registry: lifecycle, canary routing, lineage write, admin UI." style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;align=center;verticalAlign=middle;fontColor=#666666;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="900" width="1520" height="30" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="registry-page-target" name="2. Target Registry">
+        <mxGraphModel dx="1920" dy="1328" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="950" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="p2_title" value="&lt;b&gt;2. Target Registry&lt;/b&gt; — Lifecycle, canary routing, lineage write, admin UI" style="text;html=1;strokeColor=none;fillColor=#fff8dc;fontSize=14;align=center;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="10" width="1520" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="lc_title" value="&lt;b&gt;Version lifecycle state machine&lt;/b&gt; — at most one &lt;b&gt;active&lt;/b&gt; per model_id; promotions log to model_version_promotions" style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;align=left;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="60" width="1300" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="state_draft" value="&lt;b&gt;draft&lt;/b&gt;&#10;&#10;Editable.&#10;Not in any routing.&#10;Admin authors here." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;fontSize=11;align=center;verticalAlign=middle;fontStyle=1;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="100" width="200" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="state_canary" value="&lt;b&gt;canary&lt;/b&gt;&#10;&#10;Live for canary_percentage%&#10;of brokers (stable hash).&#10;Locked from edits." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;fontStyle=1;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="320" y="100" width="220" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="state_active" value="&lt;b&gt;active&lt;/b&gt;&#10;&#10;Live for all non-canary&#10;traffic. Exactly one per&#10;model_id (unique idx)." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;fontStyle=1;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="620" y="100" width="220" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="state_dep" value="&lt;b&gt;deprecated&lt;/b&gt;&#10;&#10;No new traffic.&#10;decision_records.model_version_id&#10;may still point here for audit." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=center;verticalAlign=middle;fontStyle=1;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="920" y="100" width="240" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="state_arch" value="&lt;b&gt;archived&lt;/b&gt;&#10;&#10;Hidden from default reads.&#10;Compliance can still export." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=center;verticalAlign=middle;fontStyle=1;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="1240" y="100" width="240" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="t_dc" value="promote" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="state_draft" target="state_canary" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="t_ca" value="promote (demotes current active)" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="state_canary" target="state_active" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="t_da" value="emergency promote" style="endArrow=block;html=1;strokeWidth=2;dashed=1;fontSize=10;labelBackgroundColor=#ffffff;fontStyle=2;fontColor=#000000;" parent="1" source="state_draft" target="state_active" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="240" y="80" as="sourcePoint"/>
+                        <mxPoint x="620" y="80" as="targetPoint"/>
+                        <Array as="points">
+                            <mxPoint x="430" y="50"/>
+                            <mxPoint x="730" y="50"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="t_ad" value="auto on canary→active" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="state_active" target="state_dep" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="t_da_back" value="rollback (requires no current active)" style="endArrow=block;html=1;strokeWidth=2;fontSize=10;labelBackgroundColor=#ffffff;fontStyle=2;strokeColor=#82b366;fontColor=#82b366;" parent="1" source="state_dep" target="state_active" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="1040" y="240" as="sourcePoint"/>
+                        <mxPoint x="730" y="240" as="targetPoint"/>
+                        <Array as="points">
+                            <mxPoint x="1040" y="260"/>
+                            <mxPoint x="730" y="260"/>
+                        </Array>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="t_darch" value="archive" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="state_dep" target="state_arch" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="route_title" value="&lt;b&gt;Routing — picking a version for (user_id, model_id) at session start&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;align=left;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="290" width="900" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="r1" value="&lt;b&gt;1. Pinned?&lt;/b&gt;&#10;&#10;activated_models.pinned_version_id&#10;set for this broker?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="335" width="220" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="r2" value="&lt;b&gt;2. Canary bucket?&lt;/b&gt;&#10;&#10;bucket = hash(user_id+model_id) % 100&#10;&#10;Falls inside any canary&#10;percentage window?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=center;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="320" width="260" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="r3" value="&lt;b&gt;3. Active version&lt;/b&gt;&#10;&#10;The single row with&#10;rollout_state = 'active'&#10;for this model_id." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=center;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="680" y="335" width="220" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="r_result" value="&lt;b&gt;version_id resolved&lt;/b&gt;&#10;&#10;Cached on pod_sessions.&#10;Same version for every&#10;message in this session.&#10;&#10;Bucket is stable across&#10;sessions — same broker&#10;keeps the same canary." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontStyle=1;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="980" y="335" width="240" height="180" as="geometry"/>
+                </mxCell>
+                <mxCell id="rr1_y" value="yes → use pinned" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;strokeColor=#82b366;fontColor=#82b366;" parent="1" source="r1" target="r_result" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="rr1_n" value="no" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="r1" target="r2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="rr2_y" value="yes → canary" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;strokeColor=#82b366;fontColor=#82b366;" parent="1" source="r2" target="r_result" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="rr2_n" value="no" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="r2" target="r3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="rr3" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;fontColor=#000000;" parent="1" source="r3" target="r_result" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="lineage_title" value="&lt;b&gt;Lineage write&lt;/b&gt; — every decision_record carries the version that produced it" style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;align=left;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="530" width="900" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="ln_sess" value="&lt;b&gt;pod_sessions&lt;/b&gt;&#10;&#10;version_id resolved at&#10;session start and cached&#10;here for the duration." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="575" width="220" height="110" as="geometry"/>
+                </mxCell>
+                <mxCell id="ln_chat" value="&lt;b&gt;Chat handler&lt;/b&gt;&#10;&#10;Pulls prompt_template from&#10;model_versions.&#10;&#10;Streams to Anthropic.&#10;Builds the decision payload." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="300" y="575" width="240" height="130" as="geometry"/>
+                </mxCell>
+                <mxCell id="ln_decision" value="&lt;b&gt;decision_records&lt;/b&gt;&#10;&#10;INSERT sets:&#10;• pod_session_id&#10;• model_version_id  ← NOT NULL&#10;• prompt_snapshot (denormalised&#10;  copy of prompt_template at decision time)&#10;• ai_recommendation, key_factors, …&#10;&#10;The FK that has been dead is&#10;finally populated on every new row." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4cccc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="580" y="575" width="320" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="ln_backfill" value="&lt;b&gt;Backfill&lt;/b&gt;&#10;&#10;Pre-registry decisions get&#10;a synthetic version row:&#10;&#10;  model_id = 'unknown'&#10;  version  = 'pre-registry'&#10;  rollout_state = 'archived'&#10;&#10;Run once after the lineage&#10;writer ships." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#999999;dashed=1;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="940" y="575" width="240" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="ln_audit" value="&lt;b&gt;model_version_promotions&lt;/b&gt;&#10;NEW — immutable audit log&#10;&#10;• version_id&#10;• from_state, to_state&#10;• actor_id, reason&#10;• canary_percentage_before/after&#10;• created_at&#10;&#10;Written in the same SQL&#10;transaction as any state&#10;or canary % change." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="1220" y="575" width="260" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="le1" style="endArrow=block;html=1;strokeWidth=2;fontColor=#000000;" parent="1" source="ln_sess" target="ln_chat" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="le2" style="endArrow=block;html=1;strokeWidth=2;fontColor=#000000;" parent="1" source="ln_chat" target="ln_decision" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="le3" value="one-time" style="endArrow=block;html=1;strokeWidth=2;dashed=1;fontSize=10;fontStyle=2;fontColor=#000000;" parent="1" source="ln_backfill" target="ln_decision" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="api_title" value="&lt;b&gt;API surface&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;align=left;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="790" width="200" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="api_box" value="&lt;b&gt;Reads (JWT)&lt;/b&gt;&#10;GET    /api/governance/model-versions                       list (admin sees archived)&#10;GET    /api/governance/model-versions/{id}                   detail + promotion history&#10;GET    /api/governance/model-versions/by-pod/{model_id}     lifecycle timeline for one pod&#10;GET    /api/governance/model-versions/{id}/decisions        decisions produced by this version&#10;GET    /api/governance/model-versions/diff?a=…&amp;b=…           field-by-field diff&#10;&#10;&lt;b&gt;Writes (JWT + admin)&lt;/b&gt;&#10;POST   /api/admin/model-versions                              create draft&#10;PATCH  /api/admin/model-versions/{id}                         edit draft (locked once promoted)&#10;POST   /api/admin/model-versions/{id}/promote                 draft→canary, canary→active, dep→active&#10;POST   /api/admin/model-versions/{id}/deprecate               active→deprecated&#10;POST   /api/admin/model-versions/{id}/archive                 deprecated→archived&#10;PATCH  /api/admin/model-versions/{id}/canary                  adjust canary_percentage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=10;align=left;spacingLeft=14;spacingTop=10;verticalAlign=top;fontFamily=Courier New;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="820" width="900" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="ui_box" value="&lt;b&gt;Admin UI&lt;/b&gt;&#10;frontend/app/(app)/admin/registry/&#10;&#10;• /admin/registry           Pod cards (active + canary %)&#10;• /admin/registry/[pod_id]  Timeline of versions, promote / canary controls&#10;• /admin/registry/[pod_id]/[version_id]&#10;       Prompt editor (draft only), diff, decisions table" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="960" y="820" width="600" height="100" as="geometry"/>
+                </mxCell>
+                <mxCell id="footer2" value="See model-registry-plan.md for phasing; see pod-deployment-architecture.drawio for the runtime side." style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;align=center;verticalAlign=middle;fontColor=#666666;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="925" width="1520" height="25" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>

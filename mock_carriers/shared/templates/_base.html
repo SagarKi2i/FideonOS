@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{ carrier }}</title>
+  <style>
+    :root { color-scheme: light; }
+    body { font: 14px/1.4 -apple-system, "Segoe UI", Roboto, sans-serif;
+           margin: 0; padding: 0; background: #f4f6fa; color: #1f2937; }
+    .topbar { background: #1e3a8a; color: #fff; padding: 14px 24px;
+              display: flex; align-items: center; gap: 12px; }
+    .topbar h1 { margin: 0; font-size: 16px; font-weight: 600; }
+    .topbar small { opacity: 0.75; font-size: 11px; }
+    main { max-width: 920px; margin: 32px auto; padding: 24px;
+           background: #fff; border-radius: 8px;
+           box-shadow: 0 1px 3px rgba(0,0,0,0.06); }
+    h2 { margin-top: 0; font-size: 20px; font-weight: 600; color: #111827; }
+    label { display: block; margin: 14px 0 6px; font-size: 12px;
+            font-weight: 600; color: #374151; text-transform: uppercase; letter-spacing: 0.04em; }
+    input[type=text], input[type=password] {
+      width: 100%; padding: 10px 12px; font: inherit;
+      border: 1px solid #d1d5db; border-radius: 6px; box-sizing: border-box;
+    }
+    button[type=submit] {
+      margin-top: 18px; padding: 10px 22px; background: #1e3a8a;
+      color: #fff; border: none; border-radius: 6px; font: inherit;
+      font-weight: 600; cursor: pointer;
+    }
+    button[type=submit]:hover { background: #1e40af; }
+    .err { color: #b91c1c; font-size: 13px; margin-top: 12px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #e5e7eb; }
+    th { background: #f9fafb; font-size: 11px; text-transform: uppercase;
+         color: #6b7280; letter-spacing: 0.04em; }
+    a { color: #1e40af; text-decoration: none; font-weight: 500; }
+    a:hover { text-decoration: underline; }
+    .filter { margin: 12px 0 0; display: flex; gap: 8px; align-items: center; }
+    .filter input { width: 240px; }
+    .pager { margin-top: 16px; text-align: right; font-size: 13px; }
+    iframe { width: 100%; height: 520px; border: 1px solid #e5e7eb; border-radius: 6px; }
+    .mfa-hint { background: #fef3c7; border: 1px solid #fde68a; padding: 10px 14px;
+                border-radius: 6px; font-size: 13px; margin: 14px 0; color: #92400e; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>{{ carrier }}</h1>
+    <small>Mock carrier portal · for Fideon doc-retrieval testing</small>
+  </div>
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

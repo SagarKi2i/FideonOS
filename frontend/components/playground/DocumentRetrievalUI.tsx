@@ -1,6 +1,9 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { agentsApi, type DocRetrievalRunState } from "@/lib/api";
+import { pollRun } from "@/lib/pollRun";
+import MfaPromptDialog from "@/components/playground/MfaPromptDialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -160,6 +163,35 @@ const parseRetrievalResult = (result: string, includeLossRun: boolean, insured: 
   };
 };
 
+// Map the UI's hyphen-id carrier values to the backend's canonical mock_ ids.
+// The UI list is decoupled from the registry on purpose (so we can rename
+// labels without touching backend), but the click handler needs a 1:1 map.
+const CARRIER_ID_MAP: Record<string, string> = {
+  "travelers":       "mock_travelers",
+  "hartford":        "mock_hartford",
+  "chubb":           "mock_chubb",
+  "liberty-mutual":  "mock_liberty",
+  "nationwide":      "mock_nationwide",
+  "progressive":     "mock_progressive",
+  "amtrust":         "mock_amtrust",
+  "markel":          "mock_markel",
+  "berkshire":       "mock_berkshire",
+  "zurich":          "mock_zurich",
+};
+
+// UI doc-type ids → backend canonical strings (snake_case). The set lives in
+// services.doc_retrieval.registry.CANONICAL_DOC_TYPES.
+const DOC_TYPE_MAP: Record<string, string> = {
+  "policy-renewal": "policy_renewal",
+  "cancellation":   "cancellation",
+  "endorsement":    "endorsement",
+  "memo":           "memo",
+  "invoice":        "invoice",
+  "certificate":    "certificate",
+  "dec-page":       "deck_page",
+  "loss-run":       "loss_run",
+};
+
 export default function DocumentRetrievalUI({ onRun, isRunning, result }: DocumentRetrievalUIProps) {
   const router = useRouter();
   const { settings: workflowSettings } = useWorkflowSettings();
@@ -169,12 +201,51 @@ export default function DocumentRetrievalUI({ onRun, isRunning, result }: Docume
   const [insuredName, setInsuredName] = useState("");
   const [selectedDocTypes, setSelectedDocTypes] = useState<string[]>([]);
 
+  // Real backend integration (FNF-572). Holds the latest poll state. The
+  // existing mock parseRetrievalResult path stays as a fallback for users
+  // who haven't kicked off a real run yet.
+  const [realRun, setRealRun] = useState<DocRetrievalRunState | null>(null);
+  const [realRunError, setRealRunError] = useState<string | null>(null);
+  const [realRunBusy, setRealRunBusy] = useState(false);
+  const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => () => abortRef.current?.abort(), []);
+
   const toggleCarrier = (id: string) => setSelectedCarriers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   const toggleDocType = (id: string) => setSelectedDocTypes(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
-  const handleRun = () => {
+  const handleRun = async () => {
     if (selectedCarriers.length === 0 || !selectedAMS || selectedDocTypes.length === 0) return;
+    // Notify the parent (legacy demo flow).
     onRun({ type: "document-retrieval", carriers: selectedCarriers, ams: selectedAMS, policyNumber, insuredName, documentTypes: selectedDocTypes });
+
+    // Kick off a real backend run for the first (carrier, doc_type) combo.
+    // V1 only runs one carrier at a time; multi-carrier fan-out is FNF-Nxx
+    // (separate ticket).
+    const carrierId = CARRIER_ID_MAP[selectedCarriers[0]] || selectedCarriers[0];
+    const docType = DOC_TYPE_MAP[selectedDocTypes[0]] || selectedDocTypes[0];
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+    setRealRunError(null);
+    setRealRunBusy(true);
+    try {
+      const { run_id } = await agentsApi.startDocRetrievalRun({
+        carrier_id: carrierId,
+        ams_target_id: selectedAMS,
+        doc_type: docType,
+        policy_number: policyNumber || "POL-2025-12345",
+        insured_name: insuredName || "Demo Insured",
+        attach_to: "policy",
+      });
+      for await (const state of pollRun(run_id, { signal: ac.signal, pauseOnAwaitingMfa: true })) {
+        setRealRun(state);
+      }
+    } catch (err) {
+      setRealRunError(String((err as Error).message));
+    } finally {
+      setRealRunBusy(false);
+    }
   };
 
   const isFormValid = selectedCarriers.length > 0 && selectedAMS && selectedDocTypes.length > 0;
@@ -377,6 +448,77 @@ export default function DocumentRetrievalUI({ onRun, isRunning, result }: Docume
           </Button>
         </div>
       </Card>
+
+      {/* Real backend run status (FNF-572). Sits above the mock results. */}
+      {(realRunBusy || realRun || realRunError) && (
+        <Card className="border-border">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <div className="h-8 w-8 rounded-md bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  {realRunBusy && realRun?.status !== "completed" && realRun?.status !== "failed" ? (
+                    <Loader2 className="h-4 w-4 text-primary animate-spin" />
+                  ) : realRun?.status === "completed" ? (
+                    <CheckCircle2 className="h-4 w-4 text-primary" />
+                  ) : realRun?.status === "failed" || realRunError ? (
+                    <AlertTriangle className="h-4 w-4 text-destructive" />
+                  ) : (
+                    <Activity className="h-4 w-4 text-primary" />
+                  )}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-foreground truncate">
+                    {realRun ? `Run ${realRun.id.slice(0, 8)} · ${realRun.carrier_id}` : "Starting run…"}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {realRunError
+                      ? `Error: ${realRunError}`
+                      : realRun
+                      ? `Status: ${realRun.status}${realRun.error ? ` · ${realRun.error}` : ""}`
+                      : "Posting to /api/agents/doc_retrieval_v0/run…"}
+                  </p>
+                </div>
+              </div>
+              {realRun?.status === "awaiting_mfa" && (
+                <Badge variant="secondary" className="text-xs">MFA required</Badge>
+              )}
+            </div>
+
+            {realRun?.status === "completed" && realRun.metadata.documents && realRun.metadata.documents.length > 0 && (
+              <div className="rounded-md border border-border bg-muted/20 p-3 space-y-1.5">
+                <p className="text-[10.5px] uppercase tracking-wider font-semibold text-muted-foreground">
+                  Real downloads ({realRun.metadata.documents.length})
+                </p>
+                {realRun.metadata.documents.map((d) => (
+                  <div key={d.doc_id} className="flex items-center gap-2 text-xs">
+                    <FileText className="h-3 w-3 text-primary flex-shrink-0" />
+                    <span className="font-mono truncate flex-1">{d.filename}</span>
+                    <span className="text-muted-foreground tabular-nums">{(d.size_bytes / 1024).toFixed(1)} KB</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {realRun?.status === "awaiting_mfa" && realRun.metadata.mfa_prompt && (
+              <div className="rounded-md border border-amber-500/40 bg-amber-500/5 p-3 text-xs space-y-1">
+                <p className="font-semibold text-foreground">Awaiting MFA — prompt opened in the dialog.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Modal lifecycle is gated on the poll observing awaiting_mfa. The
+          dialog itself POSTs to /mfa-response; the poll loop above picks up
+          the resumed status on the next tick. */}
+      {realRun?.status === "awaiting_mfa" && realRun.metadata.mfa_prompt && (
+        <MfaPromptDialog
+          open={true}
+          runId={realRun.id}
+          prompt={realRun.metadata.mfa_prompt}
+          onClose={() => { /* The poll will see status leave awaiting_mfa and stop rendering this. */ }}
+        />
+      )}
 
       {/* Results */}
       {result && parsedResult && (

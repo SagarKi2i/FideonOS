@@ -1,0 +1,17 @@
+{% extends "_base.html" %}
+{% block content %}
+<h2>Documents</h2>
+<form method="get" action="/documents" class="filter">
+  <label for="p" style="margin: 0; text-transform: none; font-weight: 500;">Policy filter:</label>
+  <input id="p" name="policy" type="text" value="{{ policy }}" placeholder="POL-2025-12345" id="filter_pol">
+  <button type="submit" style="margin: 0; padding: 8px 14px;">Filter</button>
+</form>
+<table id="docs">
+  <thead>
+    <tr><th>Policy</th><th>Insured</th><th>Type</th><th>Issued</th><th></th></tr>
+  </thead>
+  <tbody>
+    {% for doc in docs %}{{ row_template|replace("{{ doc.policy_number }}", doc.policy_number)|replace("{{ doc.insured_name }}", doc.insured_name)|replace("{{ doc.doc_type }}", doc.doc_type)|replace("{{ doc.issued_on }}", doc.issued_on)|replace("{{ doc.doc_id }}", doc.doc_id)|safe }}{% endfor %}
+  </tbody>
+</table>
+{% endblock %}

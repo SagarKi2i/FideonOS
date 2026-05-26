@@ -35,6 +35,10 @@ backend/venv/
 .mypy_cache/
 .ruff_cache/
 
+# Doc-retrieval local run store (per-run JSON state + downloaded PDFs).
+# Local-dev artifact; never commit.
+backend/.run_store/
+
 # ===== Electron / build output =====
 dist/
 build/

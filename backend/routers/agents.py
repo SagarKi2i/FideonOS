@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
+# pyrefly: ignore [missing-import]
 from auth.dependencies import get_current_user_id, require_admin
 from models.schemas import (
     ActivateAgentRequest,
@@ -7,6 +8,8 @@ from models.schemas import (
 )
 from services.supabase import get_supabase, is_missing_table_error
 from services.agent_activation import activate_user_agent
+from services.doc_retrieval import hil_registry, orchestrator, registry as dr_registry, store as dr_store
+from services.doc_retrieval.models import MfaResponseRequest, RunRequest
 from datetime import datetime, timezone
 
 router = APIRouter(prefix="/agents", tags=["agents"])
@@ -188,6 +191,88 @@ async def upsert_doc_retrieval_config(
             )
         raise
     return result.data[0]
+
+
+# ── Doc Retrieval v0 — run lifecycle ──────────────────────────────────────────
+#
+# `POST /doc_retrieval_v0/run`  → 202 + run_id (background pipeline starts)
+# `GET  /doc_retrieval_v0/runs` → recent runs for this user (UI history)
+# `GET  /doc_retrieval_v0/runs/{run_id}` → latest run state for polling
+# `POST /doc_retrieval_v0/runs/{run_id}/mfa-response` → resume a HIL-paused run
+#
+# Per the architecture, the run endpoint is async — it never blocks on
+# Playwright. The frontend polls /runs/{run_id} until status is terminal.
+
+@router.post("/doc_retrieval_v0/run", status_code=202)
+async def doc_retrieval_run(body: RunRequest, user_id: str = Depends(get_current_user_id)):
+    carrier = dr_registry.get_carrier(body.carrier_id)
+    if not carrier:
+        raise HTTPException(status_code=404, detail=f"Unknown carrier_id: {body.carrier_id}")
+    if not carrier.is_active:
+        raise HTTPException(status_code=409, detail=f"Carrier {body.carrier_id} is inactive.")
+    if body.ams_target_id:
+        ams = dr_registry.get_ams_target(body.ams_target_id)
+        if not ams:
+            raise HTTPException(status_code=404, detail=f"Unknown ams_target_id: {body.ams_target_id}")
+    if body.doc_type not in dr_registry.list_doc_types():
+        raise HTTPException(status_code=422, detail=f"Unknown doc_type: {body.doc_type}")
+    if not body.policy_number.strip() or not body.insured_name.strip():
+        raise HTTPException(status_code=422, detail="policy_number and insured_name are required.")
+
+    run = orchestrator.queue_run(body, user_id)
+    return {"run_id": run.id, "status": run.status}
+
+
+@router.get("/doc_retrieval_v0/runs")
+async def doc_retrieval_list_runs(user_id: str = Depends(get_current_user_id), limit: int = 25):
+    runs = dr_store.list_runs(user_id=user_id, limit=limit)
+    return [r.model_dump(mode="json") for r in runs]
+
+
+@router.get("/doc_retrieval_v0/runs/{run_id}")
+async def doc_retrieval_get_run(run_id: str, user_id: str = Depends(get_current_user_id)):
+    run = dr_store.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found.")
+    if run.user_id and run.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not your run.")
+    return run.model_dump(mode="json")
+
+
+@router.post("/doc_retrieval_v0/runs/{run_id}/mfa-response")
+async def doc_retrieval_mfa_response(
+    run_id: str,
+    body: MfaResponseRequest,
+    user_id: str = Depends(get_current_user_id),
+):
+    run = dr_store.get_run(run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found.")
+    if run.user_id and run.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Not your run.")
+    if run.status != "awaiting_mfa":
+        raise HTTPException(status_code=409, detail=f"Run is not awaiting MFA (status={run.status}).")
+    delivered = hil_registry.submit_mfa_response(run_id, body.response)
+    if not delivered:
+        raise HTTPException(status_code=410, detail="No parked session for this run — it may have expired.")
+    return {"submitted": True}
+
+
+@router.get("/doc_retrieval_v0/registry/carriers")
+async def doc_retrieval_list_carriers(_user_id: str = Depends(get_current_user_id)):
+    """Read-only view of the registry for the UI's carrier picker. Admin
+    writes go through /api/admin/carriers below."""
+    return [c.model_dump() for c in dr_registry.list_carriers()]
+
+
+@router.get("/doc_retrieval_v0/registry/ams-targets")
+async def doc_retrieval_list_ams_targets(_user_id: str = Depends(get_current_user_id)):
+    return [a.model_dump() for a in dr_registry.list_ams_targets()]
+
+
+@router.get("/doc_retrieval_v0/registry/doc-types")
+async def doc_retrieval_list_doc_types(_user_id: str = Depends(get_current_user_id)):
+    return dr_registry.list_doc_types()
 
 
 # ── Parametrised routes (/{agent_keyword} — must come last) ───────────────────

@@ -1,5 +1,6 @@
 from pathlib import Path
 
+# pyrefly: ignore [missing-import]
 from pydantic_settings import (
     BaseSettings,
     JsonConfigSettingsSource,
@@ -86,6 +87,19 @@ class Settings(BaseSettings):
 
     # Valkey
     valkey_url: str = "valkey://localhost:6379"
+
+    # Doc Retrieval storage backend: "supabase" (prod/staging) or "json"
+    # (local dev fallback when Supabase isn't reachable). The JSON backend
+    # persists run rows and the carriers/ams_targets registry to
+    # `backend/.run_store/`. Switch to "supabase" once the migration has been
+    # applied AND the SUPABASE_URL/SERVICE_ROLE_KEY point at the right env.
+    doc_retrieval_storage_backend: str = "json"
+
+    # Azure Blob storage for downloaded carrier docs. When the connection
+    # string is empty, downloads stay on local FS (preserves offline dev).
+    # See backend/services/storage/azure_blob.py for the upload path.
+    azure_blob_connection_string: str = ""
+    azure_blob_container: str = "doc-retrieval-runs"
 
     model_config = SettingsConfigDict(
         env_file=str(_BASE_DIR / ".env"),

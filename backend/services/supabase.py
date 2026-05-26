@@ -11,6 +11,7 @@ from config import settings
 # raise AttributeError on a legitimate no-match. Patch the behaviour once, here,
 # so a zero-row result uniformly yields a response object with data=None.
 def _install_maybe_single_shim() -> None:
+    # pyrefly: ignore [missing-import]
     from postgrest._sync.request_builder import SyncMaybeSingleRequestBuilder
 
     class _EmptyResponse:

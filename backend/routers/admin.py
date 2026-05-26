@@ -1,6 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
+# pyrefly: ignore [missing-import]
 from auth.dependencies import require_admin, get_current_user_id
 from models.schemas import (
     AgentActivationRequestUpdate,
@@ -12,6 +13,8 @@ from models.schemas import (
 from services.supabase import get_supabase
 from services.agent_activation import activate_user_agent
 from services.argon2_service import hash_password
+from services.doc_retrieval import registry as dr_registry
+from services.doc_retrieval.models import AmsTarget, Carrier
 from datetime import datetime, timezone
 
 logger = logging.getLogger("uvicorn.error")
@@ -200,6 +203,58 @@ async def update_custom_agent_request(
     if not result.data:
         raise HTTPException(status_code=404, detail="Custom agent request not found.")
     return result.data[0]
+
+
+# ── Doc Retrieval registry (carriers + AMS targets) ──────────────────────────
+# Admin-only. Backed by the JSON registry in services/doc_retrieval/registry.py
+# (Supabase tables ship in migration 20260526100000 once ops applies it).
+
+@router.get("/carriers", dependencies=[Depends(require_admin)])
+async def admin_list_carriers():
+    return [c.model_dump() for c in dr_registry.list_carriers()]
+
+
+@router.put("/carriers/{carrier_id}", dependencies=[Depends(require_admin)])
+async def admin_upsert_carrier(carrier_id: str, body: dict):
+    """Body is a JSON object matching the `Carrier` schema. The path `carrier_id`
+    overrides any value in the body to prevent rename-via-edit confusion."""
+    payload = {**body, "carrier_id": carrier_id}
+    try:
+        carrier = Carrier.model_validate(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid carrier payload: {exc}")
+    saved = dr_registry.upsert_carrier(carrier)
+    return saved.model_dump()
+
+
+@router.delete("/carriers/{carrier_id}", dependencies=[Depends(require_admin)])
+async def admin_delete_carrier(carrier_id: str):
+    if not dr_registry.delete_carrier(carrier_id):
+        raise HTTPException(status_code=404, detail="Carrier not found.")
+    return {"deleted": carrier_id}
+
+
+@router.get("/ams-targets", dependencies=[Depends(require_admin)])
+async def admin_list_ams_targets():
+    return [a.model_dump() for a in dr_registry.list_ams_targets()]
+
+
+@router.put("/ams-targets/{ams_target_id}", dependencies=[Depends(require_admin)])
+async def admin_upsert_ams_target(ams_target_id: str, body: dict):
+    payload = {**body, "ams_target_id": ams_target_id}
+    try:
+        target = AmsTarget.model_validate(payload)
+    except Exception as exc:
+        raise HTTPException(status_code=422, detail=f"Invalid ams_target payload: {exc}")
+    saved = dr_registry.upsert_ams_target(target)
+    return saved.model_dump()
+
+
+@router.delete("/ams-targets/{ams_target_id}", dependencies=[Depends(require_admin)])
+async def admin_delete_ams_target(ams_target_id: str):
+    if not dr_registry.delete_ams_target(ams_target_id):
+        raise HTTPException(status_code=404, detail="AMS target not found.")
+    return {"deleted": ams_target_id}
 
 
 # ── Stats ─────────────────────────────────────────────────────────────────────

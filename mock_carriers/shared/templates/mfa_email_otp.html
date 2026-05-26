@@ -1,0 +1,12 @@
+{% extends "_base.html" %}
+{% block content %}
+<h2>Email verification</h2>
+<p class="mfa-hint">A 6-digit code was emailed to your registered address. Enter it below.</p>
+{% if error %}<p class="err" data-testid="mfa-error">{{ error }}</p>{% endif %}
+<form method="post" action="/mfa">
+  <label for="c">Email code</label>
+  <input id="c" name="code" type="text" inputmode="numeric" pattern="\d{6}" maxlength="6"
+         data-testid="mfa-email-otp-code" autocomplete="one-time-code" required>
+  <button type="submit" data-testid="mfa-submit">Verify</button>
+</form>
+{% endblock %}

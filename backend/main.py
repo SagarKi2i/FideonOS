@@ -1,18 +1,39 @@
+import asyncio
 import logging
+import sys
+
+# Windows: uvicorn defaults to SelectorEventLoop which can't spawn subprocesses,
+# so Playwright fails to launch chromium for doc-retrieval. Set the proactor
+# loop BEFORE any async runtime is created. No-op on macOS/Linux.
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from config import settings
+from services.observability.logging import configure_logging
+
+# Configure structured logging before anything else logs. Idempotent.
+configure_logging(settings.environment)
 
 logger = logging.getLogger("uvicorn.error")
 
+# pyrefly: ignore [missing-import]
 from postgrest.exceptions import APIError
 
 from routers import auth, chat, devices, workflows, agents, approvals, training, governance, settings as settings_router, admin, mcp, help, workflow_ai, demo, agent_runs, dashboard
 from services.supabase import is_missing_table_error, is_transient_upstream_error
 
 app = FastAPI(title="Fideon OS API", version="1.0.0")
+
+
+@app.on_event("startup")
+async def _log_event_loop() -> None:
+    """Diagnostic: emit which event loop class is running. On Windows, this
+    must be ProactorEventLoop for Playwright to be able to spawn chromium."""
+    import asyncio as _asyncio
+    logger.info("event loop class: %s", type(_asyncio.get_event_loop()).__name__)
 
 # Dev: allow localhost on any port. Production: only the deployed frontend URL.
 _dev_origins = [

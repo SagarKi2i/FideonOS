@@ -80,6 +80,55 @@ export const chatApi = {
   messages: (convId: string) => apiFetch<unknown[]>(`/api/chat/conversations/${convId}/messages`),
 };
 
+// ── Doc Retrieval run state (matches DocRetrievalRun pydantic model) ──────────
+export type DocRetrievalRunStatus =
+  | "queued" | "running" | "awaiting_mfa" | "completed" | "failed";
+
+export interface DocRetrievalDocument {
+  doc_id: string;
+  filename: string;
+  doc_type: string;
+  policy_number: string;
+  insured_name: string;
+  issued_on: string;
+  size_bytes: number;
+  local_path: string;        // blob URL OR local FS path (FNF-570)
+  classified_doc_type: string;
+  classification_confidence: number;
+}
+
+export interface DocRetrievalMfaPrompt {
+  kind: string;
+  instruction: string;
+  captcha_image_url?: string | null;
+  submit_label?: string;
+}
+
+export interface DocRetrievalRunState {
+  id: string;
+  user_id: string | null;
+  carrier_id: string;
+  ams_target_id: string | null;
+  attach_to: string;
+  doc_type: string;
+  policy_number: string;
+  insured_name: string;
+  status: DocRetrievalRunStatus;
+  error: string | null;
+  error_kind: string | null;
+  retryable: boolean;
+  metadata: {
+    documents?: DocRetrievalDocument[];
+    mfa_prompt?: DocRetrievalMfaPrompt | null;
+    summary?: Record<string, unknown>;
+    [key: string]: unknown;
+  };
+  started_at: string | null;
+  finished_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 // ── Agents / Marketplace ──────────────────────────────────────────────────────
 export const agentsApi = {
   // Catalog
@@ -88,6 +137,28 @@ export const agentsApi = {
   activate:       (data: object)                    => apiFetch("/api/agents", { method: "POST", body: JSON.stringify(data) }),
   deactivate:     (keyword: string)                 => apiFetch(`/api/agents/${keyword}`, { method: "DELETE" }),
   agent:          (keyword: string)                 => apiFetch(`/api/agents/${keyword}`),
+
+  // Doc Retrieval v0
+  startDocRetrievalRun: (body: object) =>
+    apiFetch<{ run_id: string; status: string }>("/api/agents/doc_retrieval_v0/run", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  getDocRetrievalRun:   (runId: string) =>
+    apiFetch<DocRetrievalRunState>(`/api/agents/doc_retrieval_v0/runs/${runId}`),
+  listDocRetrievalRuns: (limit = 25) =>
+    apiFetch<DocRetrievalRunState[]>(`/api/agents/doc_retrieval_v0/runs?limit=${limit}`),
+  postDocRetrievalMfaResponse: (runId: string, response: string) =>
+    apiFetch(`/api/agents/doc_retrieval_v0/runs/${runId}/mfa-response`, {
+      method: "POST",
+      body: JSON.stringify({ response }),
+    }),
+  docRetrievalRegistryCarriers: () =>
+    apiFetch<unknown[]>("/api/agents/doc_retrieval_v0/registry/carriers"),
+  docRetrievalRegistryAmsTargets: () =>
+    apiFetch<unknown[]>("/api/agents/doc_retrieval_v0/registry/ams-targets"),
+  docRetrievalDocTypes: () =>
+    apiFetch<string[]>("/api/agents/doc_retrieval_v0/registry/doc-types"),
   // Dashboard
   dashboard:      (keyword: string)                 => apiFetch(`/api/agents/${keyword}/dashboard`),
   stats:          (keyword: string)                 => apiFetch(`/api/agents/${keyword}/stats`),
@@ -195,6 +266,18 @@ export const adminApi = {
     apiFetch(`/api/admin/users/${userId}/models`, { method: "POST", body: JSON.stringify(data) }),
   deallocateModel: (userId: string, allocationId: string) =>
     apiFetch(`/api/admin/users/${userId}/models/${allocationId}`, { method: "DELETE" }),
+
+  // Doc Retrieval registry (carriers + AMS targets)
+  carriers: () => apiFetch<unknown[]>("/api/admin/carriers"),
+  upsertCarrier: (carrierId: string, data: object) =>
+    apiFetch(`/api/admin/carriers/${carrierId}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteCarrier: (carrierId: string) =>
+    apiFetch(`/api/admin/carriers/${carrierId}`, { method: "DELETE" }),
+  amsTargets: () => apiFetch<unknown[]>("/api/admin/ams-targets"),
+  upsertAmsTarget: (amsTargetId: string, data: object) =>
+    apiFetch(`/api/admin/ams-targets/${amsTargetId}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteAmsTarget: (amsTargetId: string) =>
+    apiFetch(`/api/admin/ams-targets/${amsTargetId}`, { method: "DELETE" }),
 };
 
 // ── Dashboard (user mission control) ────────────────────────────────────────────

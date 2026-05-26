@@ -1,0 +1,204 @@
+<mxfile host="65bd71144e">
+    <diagram id="pod-page-current" name="1. Current State">
+        <mxGraphModel dx="1783" dy="949" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="950" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="p1_title" value="&lt;b&gt;1. Current State&lt;/b&gt; — How a &quot;Pod&quot; actually runs &quot;Now&quot;" style="text;html=1;strokeColor=none;fillColor=#fff8dc;fontSize=14;align=center;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="10" width="1520" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="user" value="&lt;b&gt;A. Broker&lt;/b&gt;&lt;br&gt;&lt;br&gt;• Clicks &lt;b&gt;Activate&lt;/b&gt; on a marketplace pod&lt;br&gt;• Opens the pod page&lt;br&gt;• Sends chat messages in the Run tab" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;fontSize=12;align=left;spacingLeft=12;spacingTop=10;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="70" width="240" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="frontend" value="&lt;b&gt;B. Frontend (Next.js)&lt;/b&gt;&#10;&#10;• Marketplace mocks (insuranceMocks.ts)&#10;• PodDashboardPage — Overview/Run/Analytics tabs&#10;• PodRunWorkspace — streams via lib/aiChat.ts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;verticalAlign=top;fontSize=12;align=left;spacingLeft=12;spacingTop=10;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="320" y="70" width="380" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="anthropic" value="&lt;b&gt;C. Anthropic API&lt;/b&gt; — external&#10;&#10;• Single shared model:&#10;&#10;  settings.anthropic_model&#10;  (default: claude-sonnet-4-5)&#10;&#10;• One key for all brokers/pods" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;verticalAlign=top;fontSize=12;align=left;spacingLeft=12;spacingTop=10;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="1280" y="70" width="280" height="200" as="geometry"/>
+                </mxCell>
+                <mxCell id="backend_container" value="&lt;b&gt;D. Backend (FastAPI)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;verticalAlign=top;fontStyle=1;fontSize=13;align=center;spacingTop=8;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="320" y="270" width="940" height="320" as="geometry"/>
+                </mxCell>
+                <mxCell id="agents_router" value="&lt;b&gt;agents.py&lt;/b&gt;&#10;&#10;POST /api/agents/activate&#10;DELETE /api/agents/deactivate/{id}&#10;GET /api/agents/pod/{id}&#10;GET /api/agents/marketplace&#10;POST /api/agents/pod-requests" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=12;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="310" width="280" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="chat_router" value="&lt;b&gt;chat.py&lt;/b&gt; — POST /api/chat/stream&#10;&#10;• Takes free-form model_id from body&#10;• Does NOT read activated_models&#10;• Returns SSE (OpenAI-compatible)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=12;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="640" y="310" width="280" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="anthropic_svc" value="&lt;b&gt;services/anthropic.py&lt;/b&gt;&#10;&#10;DOMAIN_PROMPTS = {&#10;  &quot;insurance&quot;: &quot;…&quot;,&#10;  &quot;healthcare&quot;: &quot;…&quot;,&#10;  &quot;banking&quot;: &quot;…&quot;,&#10;  &quot;legal&quot;: &quot;…&quot;,&#10;  &quot;travel&quot;: &quot;…&quot;,&#10;}  ⚠ hard-coded" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=12;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="940" y="310" width="300" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="gov_router" value="&lt;b&gt;governance.py&lt;/b&gt; — GET /api/governance/model-versions&#10;⚠ reads activated_models (WRONG TABLE) — see Page 1 of registry diagram" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;dashed=1;fontSize=11;align=center;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="340" y="495" width="900" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="db_container" value="&lt;b&gt;E. Supabase (PostgreSQL)&lt;/b&gt;" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4cccc;strokeColor=#b85450;verticalAlign=top;fontStyle=1;fontSize=12;align=center;spacingTop=8;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="620" width="1520" height="290" as="geometry"/>
+                </mxCell>
+                <mxCell id="tbl_activated" value="&lt;b&gt;activated_models&lt;/b&gt;&#10;&#10;• id, user_id&#10;• model_id, model_name&#10;• domain&#10;• is_active  ← toggle&#10;• activated_at&#10;&#10;⚠ no version, no prompt,&#10;   no tools, no runtime" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=12;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="60" y="660" width="240" height="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="tbl_custom" value="&lt;b&gt;custom_pod_requests&lt;/b&gt;&#10;&#10;• submitted → in_review&#10;  → building → ready_to_install&#10;  → installed | rejected&#10;• custom_agent_id&#10;• installed_activated_model_id&#10;&#10;⚠ admin UI reads&#10;  pod_activation_requests&#10;  (different table) — G5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=12;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="320" y="660" width="260" height="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="tbl_chat" value="&lt;b&gt;chat_conversations&lt;/b&gt;&#10;&lt;b&gt;chat_messages&lt;/b&gt;&#10;&#10;• conversation_id&#10;• role, content&#10;• model_id (free text)&#10;&#10;No FK to activated_models&#10;or to the pod that owned&#10;the conversation" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=12;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="600" y="660" width="240" height="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="tbl_versions" value="&lt;b&gt;model_versions&lt;/b&gt;&#10;&#10;• model_id, version&#10;• prompt_template&#10;• prompt_hash, rules_hash&#10;• is_active&#10;&#10;⚠ TABLE IS EMPTY&#10;⚠ Nothing reads or writes it" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e0e0e0;strokeColor=#999999;dashed=1;fontSize=11;align=left;spacingLeft=12;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="860" y="660" width="240" height="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="tbl_decisions" value="&lt;b&gt;decision_records&lt;/b&gt;&#10;&#10;• pod_model_id&#10;• pod_model_name&#10;• model_version&#10;• model_version_id  ← FK&#10;  ⚠ ALWAYS NULL&#10;• ai_recommendation&#10;• final_decision&#10;&#10;The FK exists but no&#10;writer populates it." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=12;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="1120" y="660" width="240" height="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="gaps_box" value="&lt;b&gt;Gaps (see architecture doc)&lt;/b&gt;&#10;G1 no version on activated_models&#10;G2 prompts hard-coded&#10;G3 no per-pod tools&#10;G4 chat ignores the pod&#10;G5 admin UI reads wrong table&#10;G6 frontend bypasses FastAPI&#10;G7 no rate / budget / scope limits&#10;G8 no deployment record" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8dc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=12;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="1380" y="660" width="180" height="220" as="geometry"/>
+                </mxCell>
+                <mxCell id="e1" value="&lt;b&gt;1.&lt;/b&gt; activate / open / chat" style="endArrow=block;html=1;strokeWidth=3;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;strokeColor=#FF0000;fontColor=#000000;" parent="1" source="user" target="frontend" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2a" value="&lt;b&gt;2a.&lt;/b&gt; activate" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="frontend" target="agents_router" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e2b" value="&lt;b&gt;2b.&lt;/b&gt; stream chat" style="endArrow=block;html=1;strokeWidth=3;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;strokeColor=#FF0000;fontColor=#000000;" parent="1" source="frontend" target="chat_router" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e3" value="&lt;b&gt;3.&lt;/b&gt; pick prompt from dict by domain" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="chat_router" target="anthropic_svc" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e4" value="&lt;b&gt;4.&lt;/b&gt; messages + system_prompt" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="anthropic_svc" target="anthropic" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e5" value="&lt;b&gt;5.&lt;/b&gt; INSERT/UPDATE row" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="agents_router" target="tbl_activated" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e6" value="&lt;b&gt;6.&lt;/b&gt; persist message" style="endArrow=block;html=1;strokeWidth=2;dashed=1;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=2;fontColor=#000000;" parent="1" source="chat_router" target="tbl_chat" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="e_nope" value="&lt;b&gt;X.&lt;/b&gt; never read" style="endArrow=block;html=1;strokeWidth=2;dashed=1;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=2;strokeColor=#b85450;fontColor=#b85450;" parent="1" source="chat_router" target="tbl_versions" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="footer" value="See Page 2 for the target architecture." style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;align=center;verticalAlign=middle;fontColor=#666666;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="915" width="1520" height="30" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+    <diagram id="pod-page-target" name="2. Target Architecture">
+        <mxGraphModel dx="1783" dy="949" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="950" math="0" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="p2_title" value="&lt;b&gt;2. Target Architecture&lt;/b&gt; — Versioned pods, session-scoped runs, governance lineage" style="text;html=1;strokeColor=none;fillColor=#fff8dc;fontSize=14;align=center;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="10" width="1520" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="layers_title" value="&lt;b&gt;Conceptual layers — &quot;What is a pod?&quot; gets four answers&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;align=left;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="60" width="700" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer_def" value="&lt;b&gt;1. Pod Definition&lt;/b&gt;&#10;(table: pod_definitions)&#10;&#10;What is this pod?&#10;&#10;• model_id, name, domain&#10;• default_version_id&#10;• tool_manifest (JSONB)&#10;• is_listed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="100" width="240" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer_ver" value="&lt;b&gt;2. Pod Version&lt;/b&gt;&#10;(table: model_versions)&#10;&#10;What is actually running?&#10;&#10;• version (semver)&#10;• prompt_template + hash&#10;• rules_hash&#10;• rollout_state&#10;• canary_percentage" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="300" y="100" width="240" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer_alloc" value="&lt;b&gt;3. Pod Allocation&lt;/b&gt;&#10;(table: activated_models)&#10;&#10;Who can run it &amp; which version?&#10;&#10;• user_id, model_id&#10;• pinned_version_id (nullable)&#10;• resource_profile_id&#10;• is_active" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="560" y="100" width="240" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer_sess" value="&lt;b&gt;4. Pod Session&lt;/b&gt;&#10;(table: pod_sessions) — NEW&#10;&#10;One row per run; join key for governance.&#10;&#10;• allocation_id, version_id&#10;• conversation_id&#10;• tokens_in/out, status&#10;• started_at, closed_at" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="820" y="100" width="240" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="layer_dec" value="&lt;b&gt;Governance lineage&lt;/b&gt;&#10;(table: decision_records)&#10;&#10;The existing FK gets populated.&#10;&#10;• pod_session_id  (NEW)&#10;• model_version_id (now NOT NULL&#10;  on new rows; backfill for old)&#10;• ai_recommendation, final_decision" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4cccc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="1080" y="100" width="240" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="profiles" value="&lt;b&gt;Resource profile&lt;/b&gt;&#10;(table: pod_resource_profiles)&#10;NEW — per-broker envelope&#10;&#10;• max_tokens_per_min&#10;• max_concurrent_sessions&#10;• daily_token_budget" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8dc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="1340" y="100" width="220" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="ll1" style="endArrow=open;html=1;strokeWidth=2;fontColor=#000000;" parent="1" source="layer_def" target="layer_ver" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ll2" style="endArrow=open;html=1;strokeWidth=2;fontColor=#000000;" parent="1" source="layer_ver" target="layer_alloc" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ll3" style="endArrow=open;html=1;strokeWidth=2;fontColor=#000000;" parent="1" source="layer_alloc" target="layer_sess" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ll4" style="endArrow=open;html=1;strokeWidth=2;fontColor=#000000;" parent="1" source="layer_sess" target="layer_dec" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ll5" style="endArrow=open;html=1;strokeWidth=2;dashed=1;fontColor=#000000;" parent="1" source="profiles" target="layer_alloc" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="flow_title" value="&lt;b&gt;Runtime flow&lt;/b&gt;" style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;align=left;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="295" width="200" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="rt_broker" value="&lt;b&gt;Broker&lt;/b&gt;&#10;hits &quot;Run&quot;&#10;in PodRunWorkspace" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;align=center;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="335" width="160" height="80" as="geometry"/>
+                </mxCell>
+                <mxCell id="rt_open" value="&lt;b&gt;Open Session&lt;/b&gt;&#10;POST /api/pods/{id}/sessions&#10;&#10;Resolves allocation →&#10;version (canary or pinned).&#10;Inserts pod_sessions row." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="240" y="335" width="240" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="rt_budget" value="&lt;b&gt;Budget Check&lt;/b&gt;&#10;enforce_budget(allocation)&#10;&#10;• max_concurrent_sessions&#10;• daily_token_budget&#10;• tokens_per_min (Redis)&#10;&#10;On breach → 429" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="520" y="335" width="240" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="rt_stream" value="&lt;b&gt;Stream message&lt;/b&gt;&#10;POST /api/pods/sessions/{id}/messages&#10;&#10;• Pulls prompt_template from model_versions&#10;• Pulls tool manifest from pod_definitions&#10;• Anthropic OR device target (Phase 4)&#10;• SSE back to client" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="800" y="335" width="300" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="rt_decide" value="&lt;b&gt;Write decision_record&lt;/b&gt;&#10;&#10;Inherits pod_session_id +&#10;model_version_id from the&#10;session — the lineage FK&#10;is finally populated." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4cccc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="1140" y="335" width="240" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="rt_close" value="&lt;b&gt;Close session&lt;/b&gt;&#10;POST .../close&#10;&#10;Sets status=closed,&#10;writes final tokens_in/out" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="1410" y="335" width="150" height="120" as="geometry"/>
+                </mxCell>
+                <mxCell id="re1" value="&lt;b&gt;1.&lt;/b&gt;" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="rt_broker" target="rt_open" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="re2" value="&lt;b&gt;2.&lt;/b&gt;" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="rt_open" target="rt_budget" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="re3" value="&lt;b&gt;3.&lt;/b&gt;" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="rt_budget" target="rt_stream" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="re4" value="&lt;b&gt;4.&lt;/b&gt;" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="rt_stream" target="rt_decide" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="re5" value="&lt;b&gt;5.&lt;/b&gt;" style="endArrow=block;html=1;strokeWidth=2;fontSize=11;labelBackgroundColor=#ffffff;fontStyle=1;fontColor=#000000;" parent="1" source="rt_decide" target="rt_close" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="isolation_title" value="&lt;b&gt;Execution isolation tiers&lt;/b&gt; — pick the lowest tier that holds. Ship T0 → T2 in order; T3 only when a customer asks." style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;align=left;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="485" width="1300" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="t0" value="&lt;b&gt;T0 — Shared FastAPI worker&lt;/b&gt;&#10;(today)&#10;&#10;One process, one Anthropic&#10;key. No isolation. No&#10;throttling. No routing.&#10;&#10;Status: in production." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e0e0e0;strokeColor=#999999;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="525" width="360" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="t1" value="&lt;b&gt;T1 — Per-pod queue + budget&lt;/b&gt;&#10;(Phase 2)&#10;&#10;Same process. Per-broker rate&#10;and token budgets enforced.&#10;Sessions cap concurrency.&#10;&#10;Status: NEXT after Phase 1." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="420" y="525" width="360" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="t2" value="&lt;b&gt;T2 — Dedicated worker pool&lt;/b&gt;&#10;(Phase 3)&#10;&#10;asyncio task group OR Arq workers&#10;routed by pod_definitions.&#10;Hot pods get their own pool.&#10;&#10;Status: when one pod dominates." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffe6cc;strokeColor=#d79b00;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="800" y="525" width="360" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="t3" value="&lt;b&gt;T3 — Out-of-process runtime&lt;/b&gt;&#10;(Phase 4 — on demand only)&#10;&#10;Pod runs as separate process /&#10;container / device, addressed&#10;via pod_deployments.runtime_kind.&#10;&#10;Status: only when forced." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f4cccc;strokeColor=#b85450;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="1180" y="525" width="380" height="170" as="geometry"/>
+                </mxCell>
+                <mxCell id="ti1" style="endArrow=block;html=1;strokeWidth=2;fontColor=#000000;" parent="1" source="t0" target="t1" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ti2" style="endArrow=block;html=1;strokeWidth=2;fontColor=#000000;" parent="1" source="t1" target="t2" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="ti3" style="endArrow=block;html=1;strokeWidth=2;dashed=1;fontColor=#000000;" parent="1" source="t2" target="t3" edge="1">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="api_title" value="&lt;b&gt;Proposed API surface&lt;/b&gt; — old endpoints stay until everything is migrated" style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;align=left;verticalAlign=middle;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="710" width="1300" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="api_box" value="&lt;b&gt;GET&lt;/b&gt; /api/pods/catalog                        — pod_definitions, listed only&#10;&lt;b&gt;POST&lt;/b&gt; /api/pods/{id}/allocate              — replaces /api/agents/activate&#10;&lt;b&gt;DELETE&lt;/b&gt; /api/pods/{id}/allocate            — replaces /api/agents/deactivate&#10;&lt;b&gt;POST&lt;/b&gt; /api/pods/{id}/sessions              — opens session, resolves version&#10;&lt;b&gt;POST&lt;/b&gt; /api/pods/sessions/{id}/messages    — SSE stream into a session&#10;&lt;b&gt;GET&lt;/b&gt; /api/pods/sessions/{id}                — session metadata + version&#10;&lt;b&gt;POST&lt;/b&gt; /api/pods/sessions/{id}/close        — closes, finalises tokens&#10;&lt;b&gt;POST&lt;/b&gt; /api/admin/pods/{id}/pin-version    — admin override for a broker" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffffff;strokeColor=#666666;fontSize=11;align=left;spacingLeft=14;spacingTop=10;verticalAlign=top;fontFamily=Courier New;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="745" width="940" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="dep_box" value="&lt;b&gt;Dependencies on the registry plan&lt;/b&gt;&#10;&#10;Phase 1 of this plan requires:&#10;• model_versions has rows (registry Phase 1 seed)&#10;• rollout_state column populated (registry Phase 3)&#10;&#10;Phase 2 of this plan unblocks:&#10;• registry Phase 2 lineage write (needs pod_sessions to&#10;  resolve and cache the version at session start)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff8dc;strokeColor=#d6b656;fontSize=11;align=left;spacingLeft=10;spacingTop=8;verticalAlign=top;fontColor=#000000;" parent="1" vertex="1">
+                    <mxGeometry x="1000" y="745" width="560" height="160" as="geometry"/>
+                </mxCell>
+                <mxCell id="footer2" value="See pod-deployment-plan.md for phasing; see model-registry-architecture.drawio for the version side." style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;align=center;verticalAlign=middle;fontColor=#666666;fontStyle=2;" parent="1" vertex="1">
+                    <mxGeometry x="40" y="915" width="1520" height="30" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
